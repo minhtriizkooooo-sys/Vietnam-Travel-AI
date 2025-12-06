@@ -20,7 +20,6 @@ def home():
 <head>
 <meta charset="UTF-8">
 <title>Vietnam Travel AI</title>
-<meta name="description" content="Tìm kiếm & tư vấn du lịch Việt Nam thông minh – lịch trình, giá cả, mùa đẹp nhất.">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body {{
@@ -36,7 +35,7 @@ header {{
     align-items:center;
 }}
 header img {{
-    height:100px;   /* logo lớn hơn */
+    height:100px;
     margin-right:20px;
     border-radius:8px;
     object-fit:contain;
@@ -94,6 +93,7 @@ footer {{
 }}
 a {{ color:#0b7a3b; text-decoration:none; }}
 a:hover {{ text-decoration:underline; }}
+img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
 </style>
 </head>
 
@@ -137,14 +137,29 @@ function appendUser(t){{
     chat.innerHTML += `<div class='user'>${{t}}</div>`;
     chat.scrollTop = chat.scrollHeight;
 }}
-function appendBot(t){{
-    chat.innerHTML += `<div class='bot'>${{t}}</div>`;
-    chat.scrollTop = chat.scrollHeight;
+
+function appendBot(text){{
+    let lines = text.split("\\n");
+    lines.forEach(line => {{
+        line = line.trim();
+        if(line.startsWith("Hình ảnh minh họa:")){
+            let url = line.replace("Hình ảnh minh họa:", "").trim();
+            chat.innerHTML += `<div class='bot'><img src='${{url}}'></div>`;
+        }} else if(line.startsWith("Video tham khảo:")){
+            let url = line.replace("Video tham khảo:", "").trim();
+            chat.innerHTML += `<div class='bot'><a href='${{url}}' target='_blank'>Xem video minh họa</a></div>`;
+        }} else {{
+            chat.innerHTML += `<div class='bot'>${{line}}</div>`;
+        }}
+        chat.scrollTop = chat.scrollHeight;
+    }});
 }}
+
 function typing(){{
     chat.innerHTML += `<div id="typing" class="typing">Đang tìm thông tin...</div>`;
     chat.scrollTop = chat.scrollHeight;
 }}
+
 function stopTyping(){{
     let t=el("typing"); if(t) t.remove();
 }}
@@ -163,7 +178,7 @@ function sendMsg(){{
     }})
     .then(r=>r.json())
     .then(d=>{{stopTyping(); appendBot(d.reply)}})
-    .catch(()=>{{stopTyping(); appendBot("<b>Lỗi kết nối server</b>")}})
+    .catch(()=>{{stopTyping(); appendBot("Lỗi kết nối server")}})
 }}
 
 function travelSearch(){{
@@ -186,16 +201,23 @@ def chat_api():
     data = request.json or {}
     msg = data.get("message","").strip()
     if not msg:
-        return jsonify({"reply":"<b>Vui lòng nhập nội dung.</b>"})
+        return jsonify({"reply":"Vui lòng nhập nội dung."})
+
+    prompt = (
+        "Bạn là chuyên gia du lịch Việt Nam. Trả lời **text chuẩn**, phân chia khoa học:\n"
+        "- Tiêu đề rõ ràng: Thời gian, Lịch trình, Chi phí, Hình ảnh & Video\n"
+        "- Mỗi ngày: liệt kê chi tiết bullet points\n"
+        "- Hình ảnh: trả về link an toàn (https://...)\n"
+        "- Video: link YouTube, bắt đầu bằng https://\n"
+        "- KHÔNG dùng HTML thừa, KHÔNG iframe\n"
+        "- Dễ đọc, chuyên nghiệp, ví dụ:\n"
+        "Ngày 1: ...\n- Hình ảnh minh họa: https://...\n- Video tham khảo: https://...\n"
+    )
 
     payload = {
         "model": "gpt-4o-mini",
         "messages": [
-            {"role":"system","content":
-            "Bạn là chuyên gia du lịch Việt Nam. Trả lời HTML có cấu trúc khoa học: "
-            "<h3>Thời gian</h3>, <h3>Lịch trình</h3> với <ul><li>chi tiết từng ngày</li></ul>, "
-            "<h3>Chi phí</h3>, <h3>Hình ảnh & Video</h3> với <a href='URL'>Video</a> và <img src='URL'>. "
-            "Trả lời dễ đọc, chuyên nghiệp, phân chia rõ ràng, thêm link hình ảnh và video minh họa."},
+            {"role":"system","content": prompt},
             {"role":"user","content": msg}
         ],
         "temperature":0.6
@@ -214,7 +236,7 @@ def chat_api():
         reply = r.json()["choices"][0]["message"]["content"]
         return jsonify({"reply": reply})
     except Exception as e:
-        return jsonify({"reply":"<b>Hệ thống đang bận, thử lại sau.</b>"})
+        return jsonify({"reply":"Hệ thống đang bận, thử lại sau."})
 
 # ========= RUN =========
 if __name__ == "__main__":
