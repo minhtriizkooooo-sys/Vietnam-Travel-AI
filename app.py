@@ -6,6 +6,7 @@ app = Flask(__name__)
 
 # ========= ENV =========
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+SERPAPI_KEY = os.getenv("SERPAPI_KEY", "")
 SITE_URL = os.getenv("SITE_URL", "https://vietnam-travel-ai.onrender.com")
 HOTLINE = os.getenv("HOTLINE", "+84-908-08-3566")
 BUILDER_NAME = os.getenv("BUILDER_NAME", "Vietnam Travel AI - Lại Nguyễn Minh Trí")
@@ -195,6 +196,7 @@ function clearChat(){{chat.innerHTML="";}}
 """
     return Response(html, mimetype="text/html")
 
+
 # ========= CHAT API =========
 @app.route("/chat", methods=["POST"])
 def chat_api():
@@ -223,6 +225,9 @@ def chat_api():
         "temperature":0.6
     }
 
+    reply_text = "Hệ thống đang bận, thử lại sau."
+
+    # ==== OpenAI ====
     try:
         r = requests.post(
             "https://api.openai.com/v1/chat/completions",
@@ -233,11 +238,47 @@ def chat_api():
             json=payload,
             timeout=60
         )
-        reply = r.json()["choices"][0]["message"]["content"]
-        return jsonify({"reply": reply})
+        reply_text = r.json()["choices"][0]["message"]["content"]
     except Exception as e:
-        return jsonify({"reply":"Hệ thống đang bận, thử lại sau."})
+        print("OpenAI error:", e)
+
+    # ==== SerpAPI hình/video minh họa ====
+    images = []
+    videos = []
+    if SERPAPI_KEY:
+        try:
+            serp_params_img = {"engine":"google","q":msg,"tbm":"isch","api_key":SERPAPI_KEY}
+            r_img = requests.get("https://serpapi.com/search", params=serp_params_img, timeout=15).json()
+            images = [i.get("original") for i in r_img.get("images_results", [])[:5]]
+
+            serp_params_vid = {"engine":"google","q":msg,"tbm":"vid","api_key":SERPAPI_KEY}
+            r_vid = requests.get("https://serpapi.com/search", params=serp_params_vid, timeout=15).json()
+            videos = [v.get("link") for v in r_vid.get("video_results", [])[:3]]
+        except Exception as e:
+            print("SerpAPI error:", e)
+
+    # ==== Webhook ====
+    if WEBHOOK_URL:
+        try:
+            requests.post(WEBHOOK_URL, json={
+                "prompt": msg,
+                "reply": reply_text,
+                "images": images,
+                "videos": videos
+            }, timeout=10)
+        except Exception as e:
+            print("Webhook error:", e)
+
+    # ==== Kết hợp trả về chat-box ====
+    reply_combined = reply_text
+    for img in images:
+        reply_combined += f"\nHình ảnh minh họa: {img}"
+    for vid in videos:
+        reply_combined += f"\nVideo tham khảo: {vid}"
+
+    return jsonify({"reply": reply_combined})
+
 
 # ========= RUN =========
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
