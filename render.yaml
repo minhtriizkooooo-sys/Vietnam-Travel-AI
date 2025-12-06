@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: vietnam-travel-ai
+    env: python
+    plan: free
+
+    startCommand: gunicorn app:app --workers=1 --threads=2 --timeout=120 --bind 0.0.0.0:10000
+
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SERPAPI_API_KEY
+        sync: false
+      - key: HOTLINE
+        value: "0909 123 456"
+      - key: BUILDER_NAME
+        value: "Vietnam Travel AI Team"
