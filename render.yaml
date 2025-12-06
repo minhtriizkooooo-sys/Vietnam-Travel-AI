@@ -3,15 +3,25 @@ services:
     name: vietnam-travel-ai
     env: python
     plan: free
-
-    startCommand: gunicorn app:app --workers=1 --threads=2 --timeout=120 --bind 0.0.0.0:10000
-
+    startCommand: gunicorn app:app --workers=1 --threads=2 --bind 0.0.0.0:10000
     envVars:
       - key: OPENAI_API_KEY
         sync: false
-      - key: SERPAPI_API_KEY
+      - key: SITE_URL
+        value: "https://vietnam-travel-ai.onrender.com"
+      - key: ADMIN_TOKEN
+        value: "replace-with-strong-token"
+      - key: WEBHOOK_URL
+        sync: false
+      - key: AIRTABLE_API_KEY
+        sync: false
+      - key: AIRTABLE_BASE
+        sync: false
+      - key: AIRTABLE_TABLE
+        sync: false
+      - key: GOOGLE_FORM_URL
         sync: false
       - key: HOTLINE
-        value: "0909 123 456"
+        value: "+84-908-08-3566"
       - key: BUILDER_NAME
-        value: "Vietnam Travel AI Team"
+        value: "Vietnam Travel AI - Lại Nguyễn Minh Trí"
