@@ -6,13 +6,10 @@ from string import Template
 app = Flask(__name__)
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-HOTLINE = os.getenv("HOTLINE", "0908.08.3566")
-BUILDER_NAME = os.getenv("BUILDER_NAME", "Vietnam Travel AI - Lại Nguyễn Minh Trí")
+HOTLINE = os.getenv("HOTLINE", "0909 123 456")
+BUILDER_NAME = os.getenv("BUILDER_NAME", "Vietnam Travel AI Team")
 
 
-# ===========================
-# Trang chủ
-# ===========================
 @app.route("/", methods=["GET"])
 def home():
 
@@ -118,13 +115,15 @@ const chat = document.getElementById("chat");
 const input = document.getElementById("msg");
 
 function appendUser(text){
-    chat.innerHTML += `<div class="user">${text}</div>`;
+    chat.innerHTML += `<div class="user">$${text}</div>`;
     chat.scrollTop = chat.scrollHeight;
 }
+
 function appendBot(text){
-    chat.innerHTML += `<div class="bot">${text}</div>`;
+    chat.innerHTML += `<div class="bot">$${text}</div>`;
     chat.scrollTop = chat.scrollHeight;
 }
+
 function sendMsg(){
     const text = input.value.trim();
     if(!text) return;
@@ -146,15 +145,12 @@ function sendMsg(){
 </html>
 """)
 
-    return html_tpl.substitute(
+    return html_tpl.safe_substitute(
         hotline=HOTLINE,
         builder=BUILDER_NAME
     )
 
 
-# ===========================
-# API Chat
-# ===========================
 @app.route("/chat", methods=["POST"])
 def chat_api():
     data = request.json or {}
@@ -183,15 +179,11 @@ def chat_api():
             json=payload,
             timeout=60
         )
-        result = r.json()
-        reply = result["choices"][0]["message"]["content"]
+        reply = r.json()["choices"][0]["message"]["content"]
         return jsonify({"reply": reply})
     except Exception:
         return jsonify({"reply": "Hệ thống đang bận, vui lòng thử lại sau."})
 
 
-# ===========================
-# Run local / Render
-# ===========================
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
