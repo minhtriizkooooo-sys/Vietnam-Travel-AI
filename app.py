@@ -6,8 +6,8 @@ from string import Template
 app = Flask(__name__)
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-HOTLINE = os.getenv("HOTLINE", "0909 123 456")
-BUILDER_NAME = os.getenv("BUILDER_NAME", "Vietnam Travel AI Team")
+HOTLINE = os.getenv("HOTLINE", "+84-908-08-3566")
+BUILDER_NAME = os.getenv("BUILDER_NAME", "Vietnam Travel AI - Lại Nguyễn Minh Trí")
 
 
 @app.route("/", methods=["GET"])
@@ -91,7 +91,7 @@ footer {
 
 <body>
 <header>
-    <img src="/static/Logo.png" alt="Logo">
+    <img src="/static/Logo_Marie_Curie.png" alt="Logo">
     <h2>Vietnam Travel AI</h2>
 </header>
 
