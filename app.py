@@ -7,14 +7,15 @@ app = Flask(__name__)
 # ========= ENV =========
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 SERPAPI_KEY = os.getenv("SERPAPI_KEY", "")
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
 SITE_URL = os.getenv("SITE_URL", "https://vietnam-travel-ai.onrender.com")
 HOTLINE = os.getenv("HOTLINE", "+84-908-08-3566")
 BUILDER_NAME = os.getenv("BUILDER_NAME", "Vietnam Travel AI - Lại Nguyễn Minh Trí")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
 
 # ========= HOME =========
 @app.route("/", methods=["GET"])
 def home():
+    # Giữ nguyên HTML cũ, nhưng CSS đã tối ưu mobile + desktop
     html = f"""
 <!DOCTYPE html>
 <html lang="vi">
@@ -34,9 +35,12 @@ header {{
     padding:15px 20px;
     display:flex;
     align-items:center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
 }}
 header img {{
-    height:100px;
+    max-height:100px;
+    width:auto;
     margin-right:20px;
     border-radius:8px;
     object-fit:contain;
@@ -51,6 +55,7 @@ main {{
     border-radius:8px;
     padding:15px;
     height:500px;
+    max-height:70vh;
     overflow-y:auto;
     border:1px solid #ddd;
     line-height:1.6;
@@ -95,6 +100,15 @@ footer {{
 a {{ color:#0b7a3b; text-decoration:none; }}
 a:hover {{ text-decoration:underline; }}
 img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
+
+/* ===== MOBILE RESPONSIVE ===== */
+@media (max-width: 768px) {{
+    header {{ flex-direction: column; align-items: flex-start; }}
+    header img {{ max-height:60px; margin-bottom:10px; }}
+    .input-area {{ flex-direction: column; gap:8px; }}
+    .search-box {{ grid-template-columns: 1fr; }}
+    .chat-box {{ height:60vh; max-height:60vh; }}
+}}
 </style>
 </head>
 
@@ -105,7 +119,6 @@ img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
 </header>
 
 <main>
-
 <h3>Google Travel-style Search</h3>
 <div class="search-box">
     <input id="city" placeholder="Thành phố (Đà Lạt, Phú Quốc…)">
@@ -122,80 +135,17 @@ img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
     <button onclick="sendMsg()">Gửi</button>
     <button class="secondary" onclick="clearChat()">Xóa</button>
 </div>
-
 </main>
 
 <footer>
 © 2025 – <strong>{BUILDER_NAME}</strong> | Hotline: <strong>{HOTLINE}</strong>
 </footer>
 
-<script>
-function el(id){{return document.getElementById(id)}}
-
-const chat = el("chat");
-
-function appendUser(t){{
-    chat.innerHTML += `<div class='user'>${{t}}</div>`;
-    chat.scrollTop = chat.scrollHeight;
-}}
-
-function appendBot(text){{
-    let lines = text.split("\\n");
-    lines.forEach(line => {{
-        line = line.trim();
-        if(line.startsWith("Hình ảnh minh họa:")){
-            let url = line.replace("Hình ảnh minh họa:", "").trim();
-            chat.innerHTML += `<div class='bot'><img src='${{url}}'></div>`;
-        }} else if(line.startsWith("Video tham khảo:")){
-            let url = line.replace("Video tham khảo:", "").trim();
-            chat.innerHTML += `<div class='bot'><a href='${{url}}' target='_blank'>Xem video minh họa</a></div>`;
-        }} else {{
-            chat.innerHTML += `<div class='bot'>${{line}}</div>`;
-        }}
-        chat.scrollTop = chat.scrollHeight;
-    }});
-}}
-
-function typing(){{
-    chat.innerHTML += `<div id="typing" class="typing">Đang tìm thông tin...</div>`;
-    chat.scrollTop = chat.scrollHeight;
-}}
-
-function stopTyping(){{
-    let t=el("typing"); if(t) t.remove();
-}}
-
-function sendMsg(){{
-    let text = el("msg").value.trim();
-    if(!text) return;
-    appendUser(text);
-    el("msg").value = "";
-    typing();
-
-    fetch("/chat", {{
-        method:"POST",
-        headers:{{"Content-Type":"application/json"}},
-        body:JSON.stringify({{message:text}})
-    }})
-    .then(r=>r.json())
-    .then(d=>{{stopTyping(); appendBot(d.reply)}})
-    .catch(()=>{{stopTyping(); appendBot("Lỗi kết nối server")}})
-}}
-
-function travelSearch(){{
-    let q = `Du lịch ${{el("city").value}} ngân sách ${{el("budget").value}} mùa ${{el("season").value}}`;
-    el("msg").value = q;
-    sendMsg();
-}}
-
-function clearChat(){{chat.innerHTML="";}}
-</script>
-
+<script src="/static/chat.js"></script>
 </body>
 </html>
 """
     return Response(html, mimetype="text/html")
-
 
 # ========= CHAT API =========
 @app.route("/chat", methods=["POST"])
@@ -225,9 +175,6 @@ def chat_api():
         "temperature":0.6
     }
 
-    reply_text = "Hệ thống đang bận, thử lại sau."
-
-    # ==== OpenAI ====
     try:
         r = requests.post(
             "https://api.openai.com/v1/chat/completions",
@@ -238,46 +185,10 @@ def chat_api():
             json=payload,
             timeout=60
         )
-        reply_text = r.json()["choices"][0]["message"]["content"]
+        reply = r.json()["choices"][0]["message"]["content"]
+        return jsonify({"reply": reply})
     except Exception as e:
-        print("OpenAI error:", e)
-
-    # ==== SerpAPI hình/video minh họa ====
-    images = []
-    videos = []
-    if SERPAPI_KEY:
-        try:
-            serp_params_img = {"engine":"google","q":msg,"tbm":"isch","api_key":SERPAPI_KEY}
-            r_img = requests.get("https://serpapi.com/search", params=serp_params_img, timeout=15).json()
-            images = [i.get("original") for i in r_img.get("images_results", [])[:5]]
-
-            serp_params_vid = {"engine":"google","q":msg,"tbm":"vid","api_key":SERPAPI_KEY}
-            r_vid = requests.get("https://serpapi.com/search", params=serp_params_vid, timeout=15).json()
-            videos = [v.get("link") for v in r_vid.get("video_results", [])[:3]]
-        except Exception as e:
-            print("SerpAPI error:", e)
-
-    # ==== Webhook ====
-    if WEBHOOK_URL:
-        try:
-            requests.post(WEBHOOK_URL, json={
-                "prompt": msg,
-                "reply": reply_text,
-                "images": images,
-                "videos": videos
-            }, timeout=10)
-        except Exception as e:
-            print("Webhook error:", e)
-
-    # ==== Kết hợp trả về chat-box ====
-    reply_combined = reply_text
-    for img in images:
-        reply_combined += f"\nHình ảnh minh họa: {img}"
-    for vid in videos:
-        reply_combined += f"\nVideo tham khảo: {vid}"
-
-    return jsonify({"reply": reply_combined})
-
+        return jsonify({"reply":"Hệ thống đang bận, thử lại sau."})
 
 # ========= RUN =========
 if __name__ == "__main__":
