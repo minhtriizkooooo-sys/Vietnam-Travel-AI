@@ -94,7 +94,7 @@ footer {{
 
 <body>
 <header>
-    <img src="/static/Logo.png" alt="Logo">
+    <img src="/static/Logo_Marie_Curie.png" alt="Logo">
     <h2>Vietnam Travel AI</h2>
 </header>
 
