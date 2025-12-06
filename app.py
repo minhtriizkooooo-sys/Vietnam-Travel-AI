@@ -15,7 +15,6 @@ BUILDER_NAME = os.getenv("BUILDER_NAME", "Vietnam Travel AI - Lại Nguyễn Min
 # ========= HOME =========
 @app.route("/", methods=["GET"])
 def home():
-    # Giữ nguyên HTML cũ, nhưng CSS đã tối ưu mobile + desktop
     html = f"""
 <!DOCTYPE html>
 <html lang="vi">
@@ -35,8 +34,8 @@ header {{
     padding:15px 20px;
     display:flex;
     align-items:center;
-    justify-content: flex-start;
-    flex-wrap: wrap;
+    justify-content:flex-start;
+    flex-wrap:wrap;
 }}
 header img {{
     max-height:100px;
