@@ -12,6 +12,27 @@ SITE_URL = os.getenv("SITE_URL", "https://vietnam-travel-ai.onrender.com")
 HOTLINE = os.getenv("HOTLINE", "+84-908-08-3566")
 BUILDER_NAME = os.getenv("BUILDER_NAME", "Vietnam Travel AI - Lại Nguyễn Minh Trí")
 
+# ========= GOOGLE IMAGE & VIDEO SEARCH =========
+def google_image_search(query, num=3):
+    try:
+        url = f"https://serpapi.com/search.json?q={query}&tbm=isch&num={num}&api_key={SERPAPI_KEY}"
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        results = r.json().get("images_results", [])
+        return [item["original"] for item in results if "original" in item]
+    except:
+        return []
+
+def youtube_search(query, num=2):
+    try:
+        url = f"https://serpapi.com/search.json?q={query}&tbm=vid&num={num}&api_key={SERPAPI_KEY}"
+        r = requests.get(url, timeout=10)
+        r.raise_for_status()
+        results = r.json().get("video_results", [])
+        return [item["link"] for item in results if "link" in item]
+    except:
+        return []
+
 # ========= HOME =========
 @app.route("/", methods=["GET"])
 def home():
@@ -24,85 +45,32 @@ def home():
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body {{
-    margin:0;
-    font-family: Arial, Helvetica, sans-serif;
-    background:#f4f6f8;
+    margin:0; font-family: Arial, Helvetica, sans-serif; background:#f4f6f8;
 }}
 header {{
-    background:#0b7a3b;
-    color:white;
-    padding:15px 20px;
-    display:flex;
-    align-items:center;
-    justify-content:flex-start;
-    flex-wrap:wrap;
+    background:#0b7a3b; color:white; padding:15px 20px; display:flex; align-items:center; justify-content:flex-start; flex-wrap:wrap;
 }}
 header img {{
-    max-height:100px;
-    width:auto;
-    margin-right:20px;
-    border-radius:8px;
-    object-fit:contain;
+    max-height:100px; width:auto; margin-right:20px; border-radius:8px; object-fit:contain;
 }}
-main {{
-    max-width:1000px;
-    margin:auto;
-    padding:20px;
-}}
+main {{ max-width:1000px; margin:auto; padding:20px; }}
 .chat-box {{
-    background:white;
-    border-radius:8px;
-    padding:15px;
-    height:500px;
-    max-height:70vh;
-    overflow-y:auto;
-    border:1px solid #ddd;
-    line-height:1.6;
-    font-size:14px;
+    background:white; border-radius:8px; padding:15px; height:500px; max-height:70vh; overflow-y:auto; border:1px solid #ddd; line-height:1.6; font-size:14px;
 }}
 .user {{ text-align:right; color:#0b7a3b; margin:8px 0; }}
 .bot {{ text-align:left; color:#333; margin:8px 0; }}
 .typing {{ color:#999; font-style:italic; }}
-.input-area {{
-    display:flex;
-    gap:10px;
-    margin-top:12px;
-}}
-input {{
-    flex:1;
-    padding:12px;
-    font-size:16px;
-}}
-button {{
-    padding:12px 16px;
-    border:none;
-    cursor:pointer;
-    background:#0b7a3b;
-    color:white;
-}}
-.secondary {{
-    background:#999;
-}}
-.search-box {{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
-    gap:10px;
-    margin-bottom:15px;
-}}
-footer {{
-    margin-top:30px;
-    padding:15px;
-    background:#eee;
-    font-size:14px;
-    text-align:center;
-}}
+.input-area {{ display:flex; gap:10px; margin-top:12px; }}
+input {{ flex:1; padding:12px; font-size:16px; }}
+button {{ padding:12px 16px; border:none; cursor:pointer; background:#0b7a3b; color:white; }}
+.secondary {{ background:#999; }}
+.search-box {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-bottom:15px; }}
+footer {{ margin-top:30px; padding:15px; background:#eee; font-size:14px; text-align:center; }}
 a {{ color:#0b7a3b; text-decoration:none; }}
 a:hover {{ text-decoration:underline; }}
 img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
-
-/* ===== MOBILE RESPONSIVE ===== */
 @media (max-width: 768px) {{
-    header {{ flex-direction: column; align-items: flex-start; }}
+    header {{ flex-direction: column; align-items:flex-start; }}
     header img {{ max-height:60px; margin-bottom:10px; }}
     .input-area {{ flex-direction: column; gap:8px; }}
     .search-box {{ grid-template-columns: 1fr; }}
@@ -154,15 +122,14 @@ def chat_api():
     if not msg:
         return jsonify({"reply":"Vui lòng nhập nội dung."})
 
+    # --- AI TEXT RESPONSE ---
     prompt = (
-        "Bạn là chuyên gia du lịch Việt Nam. Trả lời **text chuẩn**, phân chia khoa học:\n"
+        "Bạn là chuyên gia du lịch Việt Nam và thế giới. Trả lời **text chuẩn**, phân chia khoa học:\n"
         "- Tiêu đề rõ ràng: Thời gian, Lịch trình, Chi phí, Hình ảnh & Video\n"
         "- Mỗi ngày: liệt kê chi tiết bullet points\n"
-        "- Hình ảnh: trả về link an toàn (https://...)\n"
-        "- Video: link YouTube, bắt đầu bằng https://\n"
-        "- KHÔNG dùng HTML thừa, KHÔNG iframe\n"
+        "- KHÔNG dùng HTML, KHÔNG iframe, không tự tạo link hình/video\n"
         "- Dễ đọc, chuyên nghiệp, ví dụ:\n"
-        "Ngày 1: ...\n- Hình ảnh minh họa: https://...\n- Video tham khảo: https://...\n"
+        "Ngày 1: ...\n- Hình ảnh minh họa: Đà Lạt Hồ Xuân Hương\n- Video tham khảo: Đà Lạt"
     )
 
     payload = {
@@ -184,10 +151,35 @@ def chat_api():
             json=payload,
             timeout=60
         )
-        reply = r.json()["choices"][0]["message"]["content"]
-        return jsonify({"reply": reply})
+        ai_text = r.json()["choices"][0]["message"]["content"]
+
+        # --- Extract keywords for images/videos (simple: lines with "Hình ảnh"/"Video") ---
+        image_queries = []
+        video_queries = []
+        for line in ai_text.splitlines():
+            if line.strip().startswith("- Hình ảnh minh họa:"):
+                q = line.replace("- Hình ảnh minh họa:", "").strip()
+                if q: image_queries.append(q)
+            if line.strip().startswith("- Video tham khảo:"):
+                q = line.replace("- Video tham khảo:", "").strip()
+                if q: video_queries.append(q)
+
+        # --- Search real images & videos via SerpAPI ---
+        images = []
+        for q in image_queries:
+            imgs = google_image_search(q, num=1)
+            images.extend(imgs)
+
+        videos = []
+        for q in video_queries:
+            vids = youtube_search(q, num=1)
+            videos.extend(vids)
+
+        return jsonify({"reply": ai_text, "images": images, "videos": videos})
+
     except Exception as e:
-        return jsonify({"reply":"Hệ thống đang bận, thử lại sau."})
+        print(e)
+        return jsonify({"reply":"Hệ thống đang bận, thử lại sau.", "images":[], "videos":[]})
 
 # ========= RUN =========
 if __name__ == "__main__":
