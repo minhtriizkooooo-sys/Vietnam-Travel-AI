@@ -31,14 +31,15 @@ body {{
 header {{
     background:#0b7a3b;
     color:white;
-    padding:12px 20px;
+    padding:15px 20px;
     display:flex;
     align-items:center;
 }}
 header img {{
-    height:60px;
-    margin-right:15px;
+    height:100px;   /* logo lớn hơn */
+    margin-right:20px;
     border-radius:8px;
+    object-fit:contain;
 }}
 main {{
     max-width:1000px;
@@ -49,9 +50,11 @@ main {{
     background:white;
     border-radius:8px;
     padding:15px;
-    height:420px;
+    height:500px;
     overflow-y:auto;
     border:1px solid #ddd;
+    line-height:1.6;
+    font-size:14px;
 }}
 .user {{ text-align:right; color:#0b7a3b; margin:8px 0; }}
 .bot {{ text-align:left; color:#333; margin:8px 0; }}
@@ -89,6 +92,8 @@ footer {{
     font-size:14px;
     text-align:center;
 }}
+a {{ color:#0b7a3b; text-decoration:none; }}
+a:hover {{ text-decoration:underline; }}
 </style>
 </head>
 
@@ -102,7 +107,7 @@ footer {{
 
 <h3>Google Travel-style Search</h3>
 <div class="search-box">
-    <input id="city" placeholder="Thành phố (Đà Nẵng, Phú Quốc…)">
+    <input id="city" placeholder="Thành phố (Đà Lạt, Phú Quốc…)">
     <input id="budget" placeholder="Ngân sách (VD: 10 triệu)">
     <input id="season" placeholder="Mùa (hè, đông…)">
     <button onclick="travelSearch()">Tìm kiếm</button>
@@ -128,10 +133,21 @@ function el(id){{return document.getElementById(id)}}
 
 const chat = el("chat");
 
-function appendUser(t){{chat.innerHTML += `<div class='user'>${{t}}</div>`; chat.scrollTop = chat.scrollHeight;}}
-function appendBot(t){{chat.innerHTML += `<div class='bot'>${{t}}</div>`; chat.scrollTop = chat.scrollHeight;}}
-function typing(){{chat.innerHTML += `<div id="typing" class="typing">Đang tìm thông tin...</div>`; chat.scrollTop = chat.scrollHeight;}}
-function stopTyping(){{let t=el("typing"); if(t)t.remove();}}
+function appendUser(t){{
+    chat.innerHTML += `<div class='user'>${{t}}</div>`;
+    chat.scrollTop = chat.scrollHeight;
+}}
+function appendBot(t){{
+    chat.innerHTML += `<div class='bot'>${{t}}</div>`;
+    chat.scrollTop = chat.scrollHeight;
+}}
+function typing(){{
+    chat.innerHTML += `<div id="typing" class="typing">Đang tìm thông tin...</div>`;
+    chat.scrollTop = chat.scrollHeight;
+}}
+function stopTyping(){{
+    let t=el("typing"); if(t) t.remove();
+}}
 
 function sendMsg(){{
     let text = el("msg").value.trim();
@@ -147,7 +163,7 @@ function sendMsg(){{
     }})
     .then(r=>r.json())
     .then(d=>{{stopTyping(); appendBot(d.reply)}})
-    .catch(()=>{{stopTyping(); appendBot("Lỗi kết nối server")}})
+    .catch(()=>{{stopTyping(); appendBot("<b>Lỗi kết nối server</b>")}})
 }}
 
 function travelSearch(){{
@@ -170,13 +186,16 @@ def chat_api():
     data = request.json or {}
     msg = data.get("message","").strip()
     if not msg:
-        return jsonify({"reply":"Vui lòng nhập nội dung."})
+        return jsonify({"reply":"<b>Vui lòng nhập nội dung.</b>"})
 
     payload = {
         "model": "gpt-4o-mini",
         "messages": [
             {"role":"system","content":
-            "Bạn là chuyên gia du lịch Việt Nam. Trả lời rõ ràng, có lịch trình, giá tham khảo, thời điểm đẹp nhất, bullet points. Thêm hình ảnh và video minh họa nếu có thể."},
+            "Bạn là chuyên gia du lịch Việt Nam. Trả lời HTML có cấu trúc khoa học: "
+            "<h3>Thời gian</h3>, <h3>Lịch trình</h3> với <ul><li>chi tiết từng ngày</li></ul>, "
+            "<h3>Chi phí</h3>, <h3>Hình ảnh & Video</h3> với <a href='URL'>Video</a> và <img src='URL'>. "
+            "Trả lời dễ đọc, chuyên nghiệp, phân chia rõ ràng, thêm link hình ảnh và video minh họa."},
             {"role":"user","content": msg}
         ],
         "temperature":0.6
@@ -195,7 +214,7 @@ def chat_api():
         reply = r.json()["choices"][0]["message"]["content"]
         return jsonify({"reply": reply})
     except Exception as e:
-        return jsonify({"reply":"Hệ thống đang bận, thử lại sau."})
+        return jsonify({"reply":"<b>Hệ thống đang bận, thử lại sau.</b>"})
 
 # ========= RUN =========
 if __name__ == "__main__":
