@@ -1,66 +1,57 @@
-const chat = document.getElementById("chat");
-
 function el(id){ return document.getElementById(id); }
+const chat = el("chat");
 
-function appendUser(text){
-    chat.innerHTML += `<div class='user'>${text}</div>`;
+function appendUser(t){
+    chat.innerHTML += `<div class='user'>${t}</div>`;
     chat.scrollTop = chat.scrollHeight;
 }
 
-function appendBot(text){
+function appendBot(text, images=[], videos=[]){
     let lines = text.split("\n");
     lines.forEach(line => {
         line = line.trim();
-        if(line.startsWith("Hình ảnh minh họa:")){
-            let url = line.replace("Hình ảnh minh họa:", "").trim();
-            chat.innerHTML += `<div class='bot'><img src='${url}'></div>`;
-        } else if(line.startsWith("Video tham khảo:")){
-            let url = line.replace("Video tham khảo:", "").trim();
-            chat.innerHTML += `<div class='bot'><a href='${url}' target='_blank'>Xem video minh họa</a></div>`;
-        } else {
-            chat.innerHTML += `<div class='bot'>${line}</div>`;
-        }
-        chat.scrollTop = chat.scrollHeight;
+        if(line) chat.innerHTML += `<div class='bot'>${line}</div>`;
     });
+    images.forEach(url=>{
+        chat.innerHTML += `<div class='bot'><img src='${url}'></div>`;
+    });
+    videos.forEach(url=>{
+        chat.innerHTML += `<div class='bot'><a href='${url}' target='_blank'>Xem video minh họa</a></div>`;
+    });
+    chat.scrollTop = chat.scrollHeight;
 }
 
-function showTyping(){
+function typing(){
     chat.innerHTML += `<div id="typing" class="typing">Đang tìm thông tin...</div>`;
     chat.scrollTop = chat.scrollHeight;
 }
 
-function hideTyping(){
-    let t = document.getElementById("typing");
-    if(t) t.remove();
+function stopTyping(){
+    let t=el("typing"); if(t) t.remove();
 }
 
-async function sendMsg(){
-    let msg = el("msg").value.trim();
-    if(!msg) return;
-    appendUser(msg);
+function sendMsg(){
+    let text = el("msg").value.trim();
+    if(!text) return;
+    appendUser(text);
     el("msg").value = "";
-    showTyping();
-    try {
-        let res = await fetch("/chat", {
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({message: msg})
-        });
-        let data = await res.json();
-        hideTyping();
-        appendBot(data.reply || "Không nhận được phản hồi.");
-    } catch(err){
-        hideTyping();
-        appendBot("Lỗi kết nối server.");
-        console.error(err);
-    }
+    typing();
+
+    fetch("/chat", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({message:text})
+    })
+    .then(r=>r.json())
+    .then(d=>{
+        stopTyping();
+        appendBot(d.reply, d.images, d.videos);
+    })
+    .catch(()=>{ stopTyping(); appendBot("Lỗi kết nối server"); })
 }
 
 function travelSearch(){
-    let city = el("city").value.trim();
-    let budget = el("budget").value.trim();
-    let season = el("season").value.trim();
-    let q = `Du lịch ${city} ngân sách ${budget} mùa ${season}`;
+    let q = `Du lịch ${el("city").value} ngân sách ${el("budget").value} mùa ${el("season").value}`;
     el("msg").value = q;
     sendMsg();
 }
