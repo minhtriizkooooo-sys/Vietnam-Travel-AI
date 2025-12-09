@@ -12,18 +12,22 @@ let lastVideos = [];
 function loadHistory() {
     const h = JSON.parse(localStorage.getItem("chat_history") || "[]");
     historyBox.innerHTML = "";
-    h.forEach(item => {
+    h.forEach((item, idx) => {
         const div = document.createElement("div");
         div.className = "history-item";
-        div.textContent = item;
-        div.onclick = () => { el("msg").value = item; };
+        div.textContent = item.msg; // hiển thị câu hỏi
+        div.onclick = () => {
+            chat.innerHTML = ""; // Xóa chat hiện tại
+            appendUser(item.msg);
+            appendBot(item.reply, item.images, item.videos);
+        };
         historyBox.appendChild(div);
     });
 }
 
-function saveHistory(msg) {
+function saveHistory(msg, reply = "", images = [], videos = []) {
     let h = JSON.parse(localStorage.getItem("chat_history") || "[]");
-    h.unshift(msg);
+    h.unshift({msg, reply, images, videos});
     if (h.length > 30) h.pop();
     localStorage.setItem("chat_history", JSON.stringify(h));
     loadHistory();
@@ -43,15 +47,15 @@ function appendBot(text, images = [], videos = []) {
     lastImages = images;
     lastVideos = videos;
 
-    text.split("\n").forEach(line => {
-        if(line.trim()) {
-            const div = document.createElement("div");
-            div.className = "msg-bot";
-            div.textContent = line;
-            chat.appendChild(div);
-        }
-    });
+    // Text
+    if (text.trim()) {
+        const divText = document.createElement("div");
+        divText.className = "msg-bot";
+        divText.innerHTML = text.replace(/\n/g, "<br>");
+        chat.appendChild(divText);
+    }
 
+    // Images
     images.forEach(url => {
         const div = document.createElement("div");
         div.className = "msg-bot";
@@ -63,6 +67,7 @@ function appendBot(text, images = [], videos = []) {
         chat.appendChild(div);
     });
 
+    // Videos
     videos.forEach(url => {
         const div = document.createElement("div");
         div.className = "msg-bot";
@@ -78,6 +83,7 @@ function appendBot(text, images = [], videos = []) {
     generateSuggestions();
 }
 
+// ================== TYPING ==================
 function typing() {
     const t = document.createElement("div");
     t.id = "typing";
@@ -128,7 +134,6 @@ function sendMsg() {
     if(!text) return;
 
     appendUser(text);
-    saveHistory(text);
     el("msg").value = "";
     typing();
 
@@ -141,10 +146,12 @@ function sendMsg() {
     .then(d => {
         stopTyping();
         appendBot(d.reply, d.images, d.videos);
+        saveHistory(text, d.reply, d.images, d.videos);
     })
     .catch(() => {
         stopTyping();
         appendBot("❗ Lỗi kết nối server.");
+        saveHistory(text, "❗ Lỗi kết nối server.", [], []);
     });
 }
 
