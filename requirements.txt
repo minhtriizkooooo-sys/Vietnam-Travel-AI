@@ -3,3 +3,4 @@ gunicorn==21.2.0
 requests==2.31.0
 openai==0.28.1
 reportlab
+fpdf2
