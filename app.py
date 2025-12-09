@@ -47,21 +47,21 @@ def home():
 <title>Vietnam Travel AI</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body {{ margin:0; font-family: Arial, Helvetica, sans-serif; background:#f4f6f8; }}
-header {{ background:#0b7a3b; color:white; padding:15px 20px; display:flex; align-items:center; flex-wrap:wrap; }}
-header img {{ max-height:100px; width:auto; margin-right:20px; border-radius:8px; object-fit:contain; }}
+body {{ margin:0; font-family: Arial, Helvetica, sans-serif; background:#e3f2fd; }}
+header {{ background:#0277bd; color:white; padding:15px 20px; display:flex; align-items:center; flex-wrap:wrap; }}
+header img {{ max-height:80px; width:auto; margin-right:20px; border-radius:8px; object-fit:contain; }}
 main {{ max-width:1000px; margin:auto; padding:20px; }}
-.chat-box {{ background:white; border-radius:8px; padding:15px; height:500px; max-height:70vh; overflow-y:auto; border:1px solid #ddd; line-height:1.6; font-size:14px; }}
-.user {{ text-align:right; color:#0b7a3b; margin:8px 0; }}
+.chat-box {{ background:white; border-radius:8px; padding:15px; height:500px; max-height:70vh; overflow-y:auto; border:1px solid #ccc; line-height:1.6; font-size:14px; }}
+.user {{ text-align:right; color:#01579b; margin:8px 0; }}
 .bot {{ text-align:left; color:#333; margin:8px 0; }}
 .typing {{ color:#999; font-style:italic; }}
 .input-area {{ display:flex; gap:10px; margin-top:12px; }}
-input {{ flex:1; padding:12px; font-size:16px; }}
-button {{ padding:12px 16px; border:none; cursor:pointer; background:#0b7a3b; color:white; }}
-.secondary {{ background:#999; }}
+input {{ flex:1; padding:12px; font-size:16px; border:1px solid #ccc; border-radius:6px; }}
+button {{ padding:12px 16px; border:none; cursor:pointer; background:#0288d1; color:white; border-radius:6px; }}
+.secondary {{ background:#039be5; }}
 .search-box {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-bottom:15px; }}
-footer {{ margin-top:30px; padding:15px; background:#eee; font-size:14px; text-align:center; }}
-a {{ color:#0b7a3b; text-decoration:none; }}
+footer {{ margin-top:30px; padding:15px; background:#b3e5fc; font-size:14px; text-align:center; }}
+a {{ color:#01579b; text-decoration:none; }}
 a:hover {{ text-decoration:underline; }}
 img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
 .modal {{
@@ -99,7 +99,6 @@ img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
 }}
 </style>
 </head>
-
 <body>
 <header>
     <img src="/static/Logo_Marie_Curie.png" alt="Logo">
@@ -225,10 +224,10 @@ function sendMsg() {{
         appendBot(d.reply, d.images, d.videos);
         saveHistory(msg, d.reply, d.images, d.videos);
     }})
-    .catch(()=> {{
+    .catch(()=>{
         typingDiv.remove();
         appendBot("❗ Lỗi kết nối server.");
-    }});
+    });
 }}
 
 // ================== CLEAR CHAT ==================
@@ -240,19 +239,19 @@ function showHistory() {{
     const content = el("historyContent");
     content.innerHTML="";
     const h = loadHistory();
-    h.forEach(item => {{
+    h.forEach(item =>{
         const div = document.createElement("div");
         div.style.borderBottom="1px solid #ddd";
         div.style.marginBottom="5px";
         const userDiv = document.createElement("div");
-        userDiv.style.color="#0b7a3b";
+        userDiv.style.color="#01579b";
         userDiv.textContent="Q: "+item.user;
         const botDiv = document.createElement("div");
         botDiv.textContent="A: "+item.bot;
         div.appendChild(userDiv);
         div.appendChild(botDiv);
         content.appendChild(div);
-    }});
+    });
     modal.style.display="block";
 }}
 
@@ -327,7 +326,6 @@ def chat_api():
         )
         ai_text = r.json()["choices"][0]["message"]["content"]
 
-        # Extract keywords
         image_queries = []
         video_queries = []
         for line in ai_text.splitlines():
@@ -370,7 +368,7 @@ def export_pdf():
     pdf.set_font("Arial", "", 12)
 
     for item in reversed(history):
-        pdf.set_text_color(11, 122, 59)
+        pdf.set_text_color(2, 87, 155)
         pdf.multi_cell(0, 7, "Q: "+item.get("user",""))
         pdf.set_text_color(0,0,0)
         pdf.multi_cell(0, 7, "A: "+item.get("bot",""))
