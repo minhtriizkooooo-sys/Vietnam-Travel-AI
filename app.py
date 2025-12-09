@@ -178,6 +178,7 @@ def export_pdf():
     data = request.json or {}
     content = data.get("content","").strip()
     images = data.get("images", [])
+    videos = data.get("videos", [])
 
     pdf = FPDF()
     pdf.add_page()
@@ -187,6 +188,7 @@ def export_pdf():
     pdf.set_font("Arial", "", 12)
     pdf.multi_cell(0, 8, content)
 
+    # Thêm hình ảnh
     for url in images:
         try:
             r = requests.get(url, timeout=10)
@@ -196,6 +198,15 @@ def export_pdf():
                 pdf.image(img_bytes, x=15, w=180)
         except:
             continue
+
+    # Thêm video link
+    if videos:
+        pdf.add_page()
+        pdf.set_font("Arial", "B", 14)
+        pdf.multi_cell(0, 10, "Video tham khảo")
+        pdf.set_font("Arial", "", 12)
+        for v in videos:
+            pdf.multi_cell(0, 8, v)
 
     buf = BytesIO()
     pdf.output(buf)
