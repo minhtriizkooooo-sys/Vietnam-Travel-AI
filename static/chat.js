@@ -4,23 +4,24 @@ function el(id) {
 
 const chat = el("chat");
 const historyBox = el("history");
-const suggestedBox = el("suggested");
+const suggestedBox = el("suggestions");
 let lastBotMessage = ""; // để xuất PDF
 
 // ================= HISTORY ====================
 
 function loadHistory() {
     const h = JSON.parse(localStorage.getItem("chat_history") || "[]");
-    historyBox.innerHTML = "<h3>Lịch sử trò chuyện</h3>";
+    historyBox.innerHTML = "";
 
     h.forEach((item) => {
         let div = document.createElement("div");
         div.className = "history-item";
         div.textContent = item;
+
         div.onclick = () => {
-            chat.innerHTML = `<div class='msg-user'>${item}</div>`;
             el("msg").value = item;
         };
+
         historyBox.appendChild(div);
     });
 }
@@ -29,6 +30,7 @@ function saveHistory(msg) {
     let h = JSON.parse(localStorage.getItem("chat_history") || "[]");
     h.unshift(msg);
     if (h.length > 30) h.pop();
+
     localStorage.setItem("chat_history", JSON.stringify(h));
     loadHistory();
 }
@@ -49,7 +51,7 @@ function appendBot(text, images=[], videos=[]){
     });
 
     images.forEach(url=>{
-        chat.innerHTML += `<div class='msg-bot'><img src='${url}' style='max-width:60%; border-radius:10px;'></div>`;
+        chat.innerHTML += `<div class='msg-bot'><img src='${url}' class='bot-img'></div>`;
     });
 
     videos.forEach(url=>{
@@ -58,11 +60,11 @@ function appendBot(text, images=[], videos=[]){
 
     chat.scrollTop = chat.scrollHeight;
 
-    generateSuggestions(text);
+    generateSuggestions();
 }
 
 function typing(){
-    chat.innerHTML += `<div id='typing' class='msg-bot'>⏳ Đang tìm thông tin...</div>`;
+    chat.innerHTML += `<div id='typing' class='msg-bot typing'>⏳ Đang tìm thông tin...</div>`;
 }
 function stopTyping(){
     let t = el("typing");
@@ -70,7 +72,8 @@ function stopTyping(){
 }
 
 // ================= SUGGESTED QUESTIONS ====================
-function generateSuggestions(text){
+
+function generateSuggestions(){
     suggestedBox.innerHTML = "";
 
     const ideas = [
@@ -83,6 +86,7 @@ function generateSuggestions(text){
 
     ideas.forEach(q=>{
         let b = document.createElement("button");
+        b.className = "suggestion-btn";
         b.textContent = q;
         b.onclick = ()=>{ el("msg").value = q; sendMsg(); };
         suggestedBox.appendChild(b);
@@ -90,15 +94,18 @@ function generateSuggestions(text){
 
     // nút xuất PDF
     const pdfBtn = document.createElement("button");
+    pdfBtn.className = "suggestion-btn";
     pdfBtn.textContent = "⬇ Xuất PDF";
     pdfBtn.style.background = "#0b7a3b";
     pdfBtn.style.color = "white";
     pdfBtn.onclick = exportPDF;
+
     suggestedBox.appendChild(pdfBtn);
 }
 
 
 // ================= SEND MESSAGE ====================
+
 function sendMsg(){
     let text = el("msg").value.trim();
     if(!text) return;
@@ -126,6 +133,7 @@ function sendMsg(){
 }
 
 // ================= EXPORT PDF ====================
+
 function exportPDF(){
     if (!lastBotMessage) {
         alert("Chưa có nội dung để xuất PDF!");
@@ -148,8 +156,8 @@ function exportPDF(){
     });
 }
 
-
 // ================= SEARCH ====================
+
 function travelSearch(){
     let q = `Du lịch ${el("city").value} ngân sách ${el("budget").value} mùa ${el("season").value}`;
     el("msg").value = q;
