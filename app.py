@@ -2,7 +2,6 @@ from flask import Flask, request, jsonify, Response, send_file
 import os
 import requests
 from fpdf import FPDF
-from io import BytesIO
 
 app = Flask(__name__)
 
@@ -44,25 +43,7 @@ def home():
 <meta charset="UTF-8">
 <title>Vietnam Travel AI</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body {{ margin:0; font-family: Arial, Helvetica, sans-serif; background:#f4f6f8; }}
-header {{ background:#0b7a3b; color:white; padding:15px 20px; display:flex; align-items:center; flex-wrap:wrap; }}
-header img {{ max-height:100px; margin-right:20px; border-radius:8px; object-fit:contain; }}
-main {{ max-width:1000px; margin:auto; padding:20px; }}
-.chat-box {{ background:white; border-radius:8px; padding:15px; height:500px; max-height:70vh; overflow-y:auto; border:1px solid #ddd; line-height:1.6; font-size:14px; }}
-.user {{ text-align:right; color:#0b7a3b; margin:8px 0; }}
-.bot {{ text-align:left; color:#333; margin:8px 0; }}
-.bot img {{ max-width:150px; margin:5px 0; border-radius:6px; }}
-.bot a {{ color:#0b7a3b; display:block; margin:2px 0; }}
-.input-area {{ display:flex; gap:10px; margin-top:12px; }}
-input {{ flex:1; padding:12px; font-size:16px; }}
-button {{ padding:12px 16px; border:none; cursor:pointer; background:#0b7a3b; color:white; }}
-.secondary {{ background:#999; }}
-.search-box {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-bottom:15px; }}
-.history-popup {{ display:none; position:fixed; top:50px; left:50%; transform:translateX(-50%); width:90%; max-width:800px; max-height:80vh; overflow-y:auto; background:white; border:2px solid #0b7a3b; border-radius:8px; padding:15px; z-index:1000; }}
-.history-popup h3 {{ margin-top:0; }}
-.history-popup .close-btn {{ float:right; cursor:pointer; color:#0b7a3b; font-weight:bold; }}
-</style>
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 <header>
@@ -80,23 +61,22 @@ button {{ padding:12px 16px; border:none; cursor:pointer; background:#0b7a3b; co
 
 <h3>Chat tư vấn du lịch</h3>
 <div id="chat" class="chat-box"></div>
+
+<h3>Lịch sử chat</h3>
+<div id="history" class="chat-box"></div>
+
 <div class="input-area">
     <input id="msg" placeholder="Hỏi lịch trình, chi phí, mùa đẹp nhất...">
     <button onclick="sendMsg()">Gửi</button>
     <button class="secondary" onclick="clearChat()">Xóa</button>
-    <button class="secondary" onclick="showHistory()">Lịch sử chat</button>
 </div>
-
-<div class="history-popup" id="historyPopup">
-    <span class="close-btn" onclick="closeHistory()">✖</span>
-    <h3>Lịch sử chat</h3>
-    <div id="historyContent"></div>
-</div>
-
+<div id="suggested" class="input-area"></div>
 </main>
+
 <footer>
 © 2025 – <strong>{BUILDER_NAME}</strong> | Hotline: <strong>{HOTLINE}</strong>
 </footer>
+
 <script src="/static/chat.js"></script>
 </body>
 </html>
@@ -112,11 +92,11 @@ def chat_api():
         return jsonify({"reply":"Vui lòng nhập nội dung.", "images":[], "videos":[]})
 
     prompt = (
-        "Bạn là chuyên gia du lịch Việt Nam và thế giới. Trả lời **text chuẩn**, phân chia khoa học:\n"
+        "Bạn là chuyên gia du lịch Việt Nam. Trả lời chuẩn, phân chia khoa học:\n"
         "- Tiêu đề rõ ràng: Thời gian, Lịch trình, Chi phí, Hình ảnh & Video\n"
-        "- Mỗi ngày: liệt kê chi tiết bullet points\n"
-        "- KHÔNG dùng HTML, KHÔNG iframe, không tự tạo link hình/video\n"
-        "- Dễ đọc, chuyên nghiệp"
+        "- Mỗi ngày: bullet points\n"
+        "- Không dùng HTML, không tạo link hình/video\n"
+        "- Ví dụ:\nNgày 1: ...\n- Hình ảnh minh họa: Đà Lạt Hồ Xuân Hương\n- Video tham khảo: Đà Lạt"
     )
 
     payload = {
@@ -139,24 +119,25 @@ def chat_api():
         ai_text = r.json()["choices"][0]["message"]["content"]
 
         # --- Extract keywords for images/videos ---
-        image_queries, video_queries = [], []
+        image_queries = []
+        video_queries = []
         for line in ai_text.splitlines():
-            if "- Hình ảnh minh họa:" in line:
-                q = line.split(":")[1].strip()
+            if line.strip().startswith("- Hình ảnh minh họa:"):
+                q = line.replace("- Hình ảnh minh họa:", "").strip()
                 if q: image_queries.append(q)
-            if "- Video tham khảo:" in line:
-                q = line.split(":")[1].strip()
+            if line.strip().startswith("- Video tham khảo:"):
+                q = line.replace("- Video tham khảo:", "").strip()
                 if q: video_queries.append(q)
 
-        # --- Search real images & videos via SerpAPI ---
+        # --- Search real images & videos ---
         images = []
         for q in image_queries:
-            imgs = google_image_search(q, num=2)
+            imgs = google_image_search(q, num=1)
             images.extend(imgs)
 
         videos = []
         for q in video_queries:
-            vids = youtube_search(q, num=2)
+            vids = youtube_search(q, num=1)
             videos.extend(vids)
 
         return jsonify({"reply": ai_text, "images": images, "videos": videos})
@@ -169,46 +150,42 @@ def chat_api():
 @app.route("/export-pdf", methods=["POST"])
 def export_pdf():
     data = request.json or {}
-    content = data.get("content","").strip()
+    content = data.get("content", "")
     images = data.get("images", [])
     videos = data.get("videos", [])
 
     pdf = FPDF()
     pdf.add_page()
-
-    # Unicode font
-    font_path = os.path.join("static", "DejaVuSans.ttf")  # bạn cần tải font này
+    font_path = os.path.join(os.getcwd(), "static/fonts/DejaVuSans.ttf")
     pdf.add_font("DejaVu", "", font_path, uni=True)
-    pdf.add_font("DejaVu", "B", font_path, uni=True)
-
-    pdf.set_font("DejaVu", "B", 16)
-    pdf.multi_cell(0, 10, "Lịch trình du lịch")
-    pdf.ln(5)
-    pdf.set_font("DejaVu", "", 12)
+    pdf.set_font("DejaVu", "", 14)
     pdf.multi_cell(0, 8, content)
+    pdf.ln(5)
 
-    for url in images:
+    # Hình ảnh
+    for img_url in images:
         try:
-            r = requests.get(url, timeout=10)
-            if r.status_code == 200:
-                pdf.add_page()
-                img_bytes = BytesIO(r.content)
-                pdf.image(img_bytes, x=15, w=180)
-        except:
-            continue
+            resp = requests.get(img_url, stream=True, timeout=10)
+            if resp.status_code == 200:
+                img_file = os.path.join("/tmp", os.path.basename(img_url))
+                with open(img_file, "wb") as f:
+                    f.write(resp.content)
+                pdf.image(img_file, w=pdf.epw/2)
+                pdf.ln(5)
+        except: pass
 
+    # Video
     if videos:
-        pdf.add_page()
-        pdf.set_font("DejaVu", "B", 14)
-        pdf.multi_cell(0, 10, "Video tham khảo")
         pdf.set_font("DejaVu", "", 12)
+        pdf.multi_cell(0, 6, "Video tham khảo:")
         for v in videos:
-            pdf.multi_cell(0, 8, v)
+            pdf.set_text_color(0,0,255)
+            pdf.multi_cell(0, 6, v)
+        pdf.set_text_color(0,0,0)
 
-    buf = BytesIO()
-    pdf.output(buf)
-    buf.seek(0)
-    return send_file(buf, as_attachment=True, download_name="Lich_trinh_du_lich.pdf", mimetype="application/pdf")
+    pdf_file = "/tmp/lich_trinh.pdf"
+    pdf.output(pdf_file)
+    return send_file(pdf_file, as_attachment=True, download_name="Lich_trinh_du_lich.pdf")
 
 # ========= RUN =========
 if __name__ == "__main__":
