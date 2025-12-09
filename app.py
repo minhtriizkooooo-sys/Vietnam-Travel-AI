@@ -3,7 +3,6 @@ import os
 import requests
 import io
 from fpdf import FPDF
-import json
 
 app = Flask(__name__)
 
@@ -47,21 +46,21 @@ def home():
 <title>Vietnam Travel AI</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-body {{ margin:0; font-family: Arial, Helvetica, sans-serif; background:#e3f2fd; }}
+body {{ margin:0; font-family: Arial, Helvetica, sans-serif; background:#e0f7fa; }}
 header {{ background:#0277bd; color:white; padding:15px 20px; display:flex; align-items:center; flex-wrap:wrap; }}
-header img {{ max-height:80px; width:auto; margin-right:20px; border-radius:8px; object-fit:contain; }}
+header img {{ max-height:100px; width:auto; margin-right:20px; border-radius:8px; object-fit:contain; }}
 main {{ max-width:1000px; margin:auto; padding:20px; }}
-.chat-box {{ background:white; border-radius:8px; padding:15px; height:500px; max-height:70vh; overflow-y:auto; border:1px solid #ccc; line-height:1.6; font-size:14px; }}
-.user {{ text-align:right; color:#01579b; margin:8px 0; }}
+.chat-box {{ background:white; border-radius:8px; padding:15px; height:500px; max-height:70vh; overflow-y:auto; border:1px solid #ddd; line-height:1.6; font-size:14px; }}
+.user {{ text-align:right; color:#0277bd; margin:8px 0; }}
 .bot {{ text-align:left; color:#333; margin:8px 0; }}
 .typing {{ color:#999; font-style:italic; }}
 .input-area {{ display:flex; gap:10px; margin-top:12px; }}
-input {{ flex:1; padding:12px; font-size:16px; border:1px solid #ccc; border-radius:6px; }}
-button {{ padding:12px 16px; border:none; cursor:pointer; background:#0288d1; color:white; border-radius:6px; }}
-.secondary {{ background:#039be5; }}
+input {{ flex:1; padding:12px; font-size:16px; }}
+button {{ padding:12px 16px; border:none; cursor:pointer; background:#0277bd; color:white; }}
+.secondary {{ background:#999; }}
 .search-box {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-bottom:15px; }}
 footer {{ margin-top:30px; padding:15px; background:#b3e5fc; font-size:14px; text-align:center; }}
-a {{ color:#01579b; text-decoration:none; }}
+a {{ color:#0277bd; text-decoration:none; }}
 a:hover {{ text-decoration:underline; }}
 img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
 .modal {{
@@ -99,6 +98,7 @@ img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
 }}
 </style>
 </head>
+
 <body>
 <header>
     <img src="/static/Logo_Marie_Curie.png" alt="Logo">
@@ -126,7 +126,6 @@ img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
 </div>
 </main>
 
-<!-- Modal Lịch sử -->
 <div id="historyModal" class="modal">
     <div class="modal-content">
         <span class="close-modal" onclick="closeHistory()">&times;</span>
@@ -140,14 +139,12 @@ img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
 </footer>
 
 <script>
-// ================== UTILS ==================
 function el(id) {{ return document.getElementById(id); }}
 const chat = el("chat");
 let lastBotMessage = "";
 let lastImages = [];
 let lastVideos = [];
 
-// ================== HISTORY ==================
 function loadHistory() {{
     const h = JSON.parse(localStorage.getItem("chat_history") || "[]");
     return h;
@@ -160,7 +157,6 @@ function saveHistory(userMsg, botMsg, images=[], videos=[]) {{
     localStorage.setItem("chat_history", JSON.stringify(h));
 }}
 
-// ================== CHAT RENDERING ==================
 function appendUser(text) {{
     const div = document.createElement("div");
     div.className = "user";
@@ -202,7 +198,6 @@ function appendBot(text, images=[], videos=[]) {{
     chat.scrollTop = chat.scrollHeight;
 }}
 
-// ================== SEND MESSAGE ==================
 function sendMsg() {{
     const msg = el("msg").value.trim();
     if(!msg) return;
@@ -224,40 +219,37 @@ function sendMsg() {{
         appendBot(d.reply, d.images, d.videos);
         saveHistory(msg, d.reply, d.images, d.videos);
     }})
-    .catch(()=>{
+    .catch(()=> {{
         typingDiv.remove();
         appendBot("❗ Lỗi kết nối server.");
-    });
+    }});
 }}
 
-// ================== CLEAR CHAT ==================
 function clearChat() {{ chat.innerHTML=""; }}
 
-// ================== HISTORY MODAL ==================
 function showHistory() {{
     const modal = el("historyModal");
     const content = el("historyContent");
     content.innerHTML="";
     const h = loadHistory();
-    h.forEach(item =>{
+    h.forEach(item => {{
         const div = document.createElement("div");
         div.style.borderBottom="1px solid #ddd";
         div.style.marginBottom="5px";
         const userDiv = document.createElement("div");
-        userDiv.style.color="#01579b";
+        userDiv.style.color="#0277bd";
         userDiv.textContent="Q: "+item.user;
         const botDiv = document.createElement("div");
         botDiv.textContent="A: "+item.bot;
         div.appendChild(userDiv);
         div.appendChild(botDiv);
         content.appendChild(div);
-    });
+    }});
     modal.style.display="block";
 }}
 
 function closeHistory() {{ el("historyModal").style.display="none"; }}
 
-// ================== EXPORT PDF ==================
 function exportPDF() {{
     const h = loadHistory();
     if(h.length===0) {{
@@ -280,7 +272,6 @@ function exportPDF() {{
     }});
 }}
 
-// ================== TRAVEL SEARCH ==================
 function travelSearch() {{
     const city = el("city").value||"";
     const budget = el("budget").value||"";
@@ -368,7 +359,7 @@ def export_pdf():
     pdf.set_font("Arial", "", 12)
 
     for item in reversed(history):
-        pdf.set_text_color(2, 87, 155)
+        pdf.set_text_color(2,119,189)
         pdf.multi_cell(0, 7, "Q: "+item.get("user",""))
         pdf.set_text_color(0,0,0)
         pdf.multi_cell(0, 7, "A: "+item.get("bot",""))
