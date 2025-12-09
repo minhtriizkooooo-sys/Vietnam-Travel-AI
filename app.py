@@ -9,7 +9,6 @@ app = Flask(__name__)
 # ========= ENV =========
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 SERPAPI_KEY = os.getenv("SERPAPI_KEY", "")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
 SITE_URL = os.getenv("SITE_URL", "https://vietnam-travel-ai.onrender.com")
 HOTLINE = os.getenv("HOTLINE", "+84-908-08-3566")
 BUILDER_NAME = os.getenv("BUILDER_NAME", "Vietnam Travel AI - Lại Nguyễn Minh Trí")
@@ -45,162 +44,59 @@ def home():
 <meta charset="UTF-8">
 <title>Vietnam Travel AI</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-body {{
-    margin:0;
-    font-family: 'Roboto', sans-serif;
-    background:#f5f7fa;
-    color:#333;
-}}
-header {{
-    background:#0b7a3b;
-    color:white;
-    padding:15px 30px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    flex-wrap:wrap;
-    box-shadow:0 2px 5px rgba(0,0,0,0.1);
-}}
-header h1 {{
-    margin:0;
-    font-weight:700;
-    font-size:24px;
-}}
-header img {{
-    height:60px;
-    border-radius:8px;
-}}
-main {{
-    max-width:1000px;
-    margin:auto;
-    padding:20px;
-}}
-section {{
-    background:white;
-    border-radius:10px;
-    padding:20px;
-    margin-bottom:20px;
-    box-shadow:0 2px 5px rgba(0,0,0,0.05);
-}}
-h2 {{
-    margin-top:0;
-    font-size:20px;
-    color:#0b7a3b;
-}}
-.search-box {{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
-    gap:10px;
-    margin-top:10px;
-}}
-.search-box input, .input-area input {{
-    padding:12px;
-    border-radius:6px;
-    border:1px solid #ccc;
-    font-size:14px;
-}}
-button {{
-    padding:12px;
-    border:none;
-    border-radius:6px;
-    cursor:pointer;
-    background:#0b7a3b;
-    color:white;
-    font-weight:500;
-    transition:0.2s;
-}}
-button:hover {{
-    background:#095a2a;
-}}
-.secondary {{
-    background:#888;
-}}
-.chat-box {{
-    background:#fdfdfd;
-    border-radius:8px;
-    padding:15px;
-    height:400px;
-    max-height:60vh;
-    overflow-y:auto;
-    border:1px solid #ddd;
-    line-height:1.6;
-    font-size:14px;
-}}
-.msg-user {{ text-align:right; color:#0b7a3b; margin:8px 0; }}
-.msg-bot {{ text-align:left; color:#333; margin:8px 0; }}
-.typing {{ color:#999; font-style:italic; }}
-.input-area {{
-    display:flex;
-    gap:10px;
-    margin-top:12px;
-    flex-wrap:wrap;
-}}
-.suggested {{
-    margin-top:10px;
-}}
-.suggested button {{
-    margin:5px 5px 0 0;
-    font-size:13px;
-}}
-#history {{
-    max-height:200px;
-    overflow-y:auto;
-}}
-footer {{
-    text-align:center;
-    padding:15px;
-    font-size:14px;
-    background:#eee;
-    margin-top:30px;
-    border-top:1px solid #ddd;
-}}
-a {{ color:#0b7a3b; text-decoration:none; }}
-a:hover {{ text-decoration:underline; }}
-img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
-@media(max-width:768px){{
-    .search-box, .input-area {{ grid-template-columns:1fr; display:block; }}
-    .input-area input {{ width:100%; margin-bottom:10px; }}
-    header {{ flex-direction:column; align-items:flex-start; gap:10px; }}
-}}
+body {{ margin:0; font-family: Arial, Helvetica, sans-serif; background:#f4f6f8; }}
+header {{ background:#0b7a3b; color:white; padding:15px 20px; display:flex; align-items:center; flex-wrap:wrap; }}
+header img {{ max-height:100px; margin-right:20px; border-radius:8px; object-fit:contain; }}
+main {{ max-width:1000px; margin:auto; padding:20px; }}
+.chat-box {{ background:white; border-radius:8px; padding:15px; height:500px; max-height:70vh; overflow-y:auto; border:1px solid #ddd; line-height:1.6; font-size:14px; }}
+.user {{ text-align:right; color:#0b7a3b; margin:8px 0; }}
+.bot {{ text-align:left; color:#333; margin:8px 0; }}
+.bot img {{ max-width:150px; margin:5px 0; border-radius:6px; }}
+.bot a {{ color:#0b7a3b; display:block; margin:2px 0; }}
+.input-area {{ display:flex; gap:10px; margin-top:12px; }}
+input {{ flex:1; padding:12px; font-size:16px; }}
+button {{ padding:12px 16px; border:none; cursor:pointer; background:#0b7a3b; color:white; }}
+.secondary {{ background:#999; }}
+.search-box {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-bottom:15px; }}
+.history-popup {{ display:none; position:fixed; top:50px; left:50%; transform:translateX(-50%); width:90%; max-width:800px; max-height:80vh; overflow-y:auto; background:white; border:2px solid #0b7a3b; border-radius:8px; padding:15px; z-index:1000; }}
+.history-popup h3 {{ margin-top:0; }}
+.history-popup .close-btn {{ float:right; cursor:pointer; color:#0b7a3b; font-weight:bold; }}
 </style>
 </head>
 <body>
 <header>
     <img src="/static/Logo_Marie_Curie.png" alt="Logo">
-    <h1>Vietnam Travel AI</h1>
+    <h2>Vietnam Travel AI</h2>
 </header>
-
 <main>
-<section>
-<h2>🔍 Tìm kiếm du lịch</h2>
+<h3>Google Travel-style Search</h3>
 <div class="search-box">
     <input id="city" placeholder="Thành phố (Đà Lạt, Phú Quốc…)">
     <input id="budget" placeholder="Ngân sách (VD: 10 triệu)">
     <input id="season" placeholder="Mùa (hè, đông…)">
     <button onclick="travelSearch()">Tìm kiếm</button>
 </div>
-</section>
 
-<section>
-<h2>💬 Chat tư vấn du lịch</h2>
+<h3>Chat tư vấn du lịch</h3>
 <div id="chat" class="chat-box"></div>
 <div class="input-area">
     <input id="msg" placeholder="Hỏi lịch trình, chi phí, mùa đẹp nhất...">
     <button onclick="sendMsg()">Gửi</button>
     <button class="secondary" onclick="clearChat()">Xóa</button>
+    <button class="secondary" onclick="showHistory()">Lịch sử chat</button>
 </div>
-<div class="suggested" id="suggested"></div>
-<div id="history" class="chat-box"></div>
-</section>
+
+<div class="history-popup" id="historyPopup">
+    <span class="close-btn" onclick="closeHistory()">✖</span>
+    <h3>Lịch sử chat</h3>
+    <div id="historyContent"></div>
+</div>
 
 </main>
-
 <footer>
 © 2025 – <strong>{BUILDER_NAME}</strong> | Hotline: <strong>{HOTLINE}</strong>
 </footer>
-
 <script src="/static/chat.js"></script>
 </body>
 </html>
@@ -235,7 +131,8 @@ def chat_api():
     try:
         r = requests.post(
             "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {OPENAI_API_KEY}","Content-Type":"application/json"},
+            headers={"Authorization": f"Bearer {OPENAI_API_KEY}",
+                     "Content-Type":"application/json"},
             json=payload,
             timeout=60
         )
@@ -251,14 +148,15 @@ def chat_api():
                 q = line.split(":")[1].strip()
                 if q: video_queries.append(q)
 
+        # --- Search real images & videos via SerpAPI ---
         images = []
         for q in image_queries:
-            imgs = google_image_search(q, num=1)
+            imgs = google_image_search(q, num=2)
             images.extend(imgs)
 
         videos = []
         for q in video_queries:
-            vids = youtube_search(q, num=1)
+            vids = youtube_search(q, num=2)
             videos.extend(vids)
 
         return jsonify({"reply": ai_text, "images": images, "videos": videos})
@@ -277,13 +175,18 @@ def export_pdf():
 
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", "B", 16)
+
+    # Unicode font
+    font_path = os.path.join("static", "DejaVuSans.ttf")  # bạn cần tải font này
+    pdf.add_font("DejaVu", "", font_path, uni=True)
+    pdf.add_font("DejaVu", "B", font_path, uni=True)
+
+    pdf.set_font("DejaVu", "B", 16)
     pdf.multi_cell(0, 10, "Lịch trình du lịch")
     pdf.ln(5)
-    pdf.set_font("Arial", "", 12)
+    pdf.set_font("DejaVu", "", 12)
     pdf.multi_cell(0, 8, content)
 
-    # Thêm hình ảnh
     for url in images:
         try:
             r = requests.get(url, timeout=10)
@@ -294,12 +197,11 @@ def export_pdf():
         except:
             continue
 
-    # Thêm video link
     if videos:
         pdf.add_page()
-        pdf.set_font("Arial", "B", 14)
+        pdf.set_font("DejaVu", "B", 14)
         pdf.multi_cell(0, 10, "Video tham khảo")
-        pdf.set_font("Arial", "", 12)
+        pdf.set_font("DejaVu", "", 12)
         for v in videos:
             pdf.multi_cell(0, 8, v)
 
