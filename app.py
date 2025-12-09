@@ -14,7 +14,8 @@ SITE_URL = os.getenv("SITE_URL", "https://vietnam-travel-ai.onrender.com")
 HOTLINE = os.getenv("HOTLINE", "+84-908-08-3566")
 BUILDER_NAME = os.getenv("BUILDER_NAME", "Vietnam Travel AI - Lại Nguyễn Minh Trí")
 
-# ========= GOOGLE IMAGE & VIDEO SEARCH =========
+
+# ========= GOOGLE SEARCH =========
 def google_image_search(query, num=3):
     try:
         url = f"https://serpapi.com/search.json?q={query}&tbm=isch&num={num}&api_key={SERPAPI_KEY}"
@@ -24,6 +25,7 @@ def google_image_search(query, num=3):
         return [item["original"] for item in results if "original" in item]
     except:
         return []
+
 
 def youtube_search(query, num=2):
     try:
@@ -35,43 +37,46 @@ def youtube_search(query, num=2):
     except:
         return []
 
+
 # ========= HOME =========
 @app.route("/", methods=["GET"])
 def home():
-    html = f"""
+    html = """
 <!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
 <title>Vietnam Travel AI</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <style>
-body {{ margin:0; font-family: Arial, Helvetica, sans-serif; background:#e0f7fa; }}
-header {{ background:#0277bd; color:white; padding:15px 20px; display:flex; align-items:center; flex-wrap:wrap; }}
-header img {{ max-height:100px; width:auto; margin-right:20px; border-radius:8px; object-fit:contain; }}
-main {{ max-width:1000px; margin:auto; padding:20px; }}
-.chat-box {{ background:white; border-radius:8px; padding:15px; height:500px; max-height:70vh; overflow-y:auto; border:1px solid #ddd; line-height:1.6; font-size:14px; }}
-.user {{ text-align:right; color:#0277bd; margin:8px 0; }}
-.bot {{ text-align:left; color:#333; margin:8px 0; }}
-.typing {{ color:#999; font-style:italic; }}
-.input-area {{ display:flex; gap:10px; margin-top:12px; }}
-input {{ flex:1; padding:12px; font-size:16px; }}
-button {{ padding:12px 16px; border:none; cursor:pointer; background:#0277bd; color:white; }}
-.secondary {{ background:#999; }}
-.search-box {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-bottom:15px; }}
-footer {{ margin-top:30px; padding:15px; background:#b3e5fc; font-size:14px; text-align:center; }}
-a {{ color:#0277bd; text-decoration:none; }}
-a:hover {{ text-decoration:underline; }}
-img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
-.modal {{
+body { margin:0; font-family: Arial, Helvetica, sans-serif; background:#e0f7fa; }
+header { background:#0277bd; color:white; padding:15px 20px; display:flex; align-items:center; flex-wrap:wrap; }
+header img { max-height:100px; width:auto; margin-right:20px; border-radius:8px; object-fit:contain; }
+main { max-width:1000px; margin:auto; padding:20px; }
+.chat-box { background:white; border-radius:8px; padding:15px; height:500px; max-height:70vh; overflow-y:auto; border:1px solid #ddd; line-height:1.6; font-size:14px; }
+.user { text-align:right; color:#0277bd; margin:8px 0; }
+.bot { text-align:left; color:#333; margin:8px 0; }
+.typing { color:#999; font-style:italic; }
+.input-area { display:flex; gap:10px; margin-top:12px; }
+input { flex:1; padding:12px; font-size:16px; }
+button { padding:12px 16px; border:none; cursor:pointer; background:#0277bd; color:white; }
+.secondary { background:#999; }
+.search-box { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-bottom:15px; }
+footer { margin-top:30px; padding:15px; background:#b3e5fc; font-size:14px; text-align:center; }
+a { color:#0277bd; text-decoration:none; }
+a:hover { text-decoration:underline; }
+img { max-width:100%; border-radius:6px; margin:5px 0; }
+
+.modal {
     display:none;
     position: fixed;
     z-index: 1000;
     padding-top: 60px;
     left:0; top:0; width:100%; height:100%;
     overflow:auto; background-color: rgba(0,0,0,0.4);
-}}
-.modal-content {{
+}
+.modal-content {
     background-color: #fefefe;
     margin: auto;
     padding: 20px;
@@ -80,22 +85,23 @@ img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
     max-height:80vh;
     overflow-y:auto;
     border-radius:8px;
-}}
-.close-modal {{
+}
+.close-modal {
     color: #aaa;
     float:right;
     font-size:28px;
     font-weight:bold;
     cursor:pointer;
-}}
-.close-modal:hover {{ color: black; }}
-@media (max-width: 768px) {{
-    header {{ flex-direction: column; align-items:flex-start; }}
-    header img {{ max-height:60px; margin-bottom:10px; }}
-    .input-area {{ flex-direction: column; gap:8px; }}
-    .search-box {{ grid-template-columns: 1fr; }}
-    .chat-box {{ height:60vh; max-height:60vh; }}
-}}
+}
+.close-modal:hover { color: black; }
+
+@media (max-width: 768px) {
+    header { flex-direction: column; align-items:flex-start; }
+    header img { max-height:60px; margin-bottom:10px; }
+    .input-area { flex-direction: column; gap:8px; }
+    .search-box { grid-template-columns: 1fr; }
+    .chat-box { height:60vh; max-height:60vh; }
+}
 </style>
 </head>
 
@@ -135,156 +141,132 @@ img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
 </div>
 
 <footer>
-© 2025 – <strong>{BUILDER_NAME}</strong> | Hotline: <strong>{HOTLINE}</strong>
+© 2025 – <strong>{builder}</strong> | Hotline: <strong>{hotline}</strong>
 </footer>
 
 <script>
-function el(id) {{ return document.getElementById(id); }}
+function el(id) { return document.getElementById(id); }
 const chat = el("chat");
-let lastBotMessage = "";
-let lastImages = [];
-let lastVideos = [];
 
-function loadHistory() {{
-    const h = JSON.parse(localStorage.getItem("chat_history") || "[]");
-    return h;
-}}
+function loadHistory() {
+    return JSON.parse(localStorage.getItem("chat_history") || "[]");
+}
 
-function saveHistory(userMsg, botMsg, images=[], videos=[]) {{
+function saveHistory(userMsg, botMsg, images=[], videos=[]) {
     let h = loadHistory();
-    h.unshift({{user:userMsg, bot:botMsg, images:images, videos:videos}});
+    h.unshift({user:userMsg, bot:botMsg, images:images, videos:videos});
     if(h.length>50) h.pop();
     localStorage.setItem("chat_history", JSON.stringify(h));
-}}
+}
 
-function appendUser(text) {{
+function appendUser(text) {
     const div = document.createElement("div");
-    div.className = "user";
-    div.textContent = text;
+    div.className="user";
+    div.textContent=text;
     chat.appendChild(div);
-    chat.scrollTop = chat.scrollHeight;
-}}
+    chat.scrollTop=chat.scrollHeight;
+}
 
-function appendBot(text, images=[], videos=[]) {{
-    lastBotMessage = text;
-    lastImages = images;
-    lastVideos = videos;
+function appendBot(text, images=[], videos=[]) {
+    const div = document.createElement("div");
+    div.className="bot";
+    div.textContent=text;
+    chat.appendChild(div);
 
-    const divText = document.createElement("div");
-    divText.className = "bot";
-    divText.textContent = text;
-    chat.appendChild(divText);
+    images.forEach(url=>{
+        const img=document.createElement("img");
+        img.src=url;
+        chat.appendChild(img);
+    });
 
-    images.forEach(url => {{
-        const div = document.createElement("div");
-        div.className = "bot";
-        const img = document.createElement("img");
-        img.src = url;
-        div.appendChild(img);
-        chat.appendChild(div);
-    }});
+    videos.forEach(url=>{
+        const a=document.createElement("a");
+        a.href=url; a.target="_blank";
+        a.textContent="🎬 Video tham khảo";
+        chat.appendChild(a);
+    });
 
-    videos.forEach(url => {{
-        const div = document.createElement("div");
-        div.className = "bot";
-        const a = document.createElement("a");
-        a.href = url;
-        a.target="_blank";
-        a.textContent = "🎬 Video tham khảo";
-        div.appendChild(a);
-        chat.appendChild(div);
-    }});
+    chat.scrollTop=chat.scrollHeight;
+}
 
-    chat.scrollTop = chat.scrollHeight;
-}}
-
-function sendMsg() {{
+function sendMsg() {
     const msg = el("msg").value.trim();
     if(!msg) return;
     appendUser(msg);
     el("msg").value="";
-    const typingDiv = document.createElement("div");
-    typingDiv.className="bot typing";
-    typingDiv.textContent="⏳ Đang tìm thông tin...";
-    chat.appendChild(typingDiv);
-    chat.scrollTop=chat.scrollHeight;
 
-    fetch("/chat", {{
+    const typing = document.createElement("div");
+    typing.className="bot typing";
+    typing.textContent="⏳ Đang tìm thông tin...";
+    chat.appendChild(typing);
+
+    fetch("/chat", {
         method:"POST",
-        headers:{{"Content-Type":"application/json"}},
-        body: JSON.stringify({{message: msg}})
-    }}).then(r=>r.json())
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({message: msg})
+    })
+    .then(r=>r.json())
     .then(d=>{
-        typingDiv.remove();
+        typing.remove();
         appendBot(d.reply, d.images, d.videos);
         saveHistory(msg, d.reply, d.images, d.videos);
-    }})
-    .catch(()=> {{
-        typingDiv.remove();
+    })
+    .catch(()=>{
+        typing.remove();
         appendBot("❗ Lỗi kết nối server.");
-    }});
-}}
+    });
+}
 
-function clearChat() {{ chat.innerHTML=""; }}
+function clearChat(){ chat.innerHTML=""; }
 
-function showHistory() {{
-    const modal = el("historyModal");
-    const content = el("historyContent");
+function showHistory(){
+    const modal=el("historyModal");
+    const content=el("historyContent");
     content.innerHTML="";
-    const h = loadHistory();
-    h.forEach(item => {{
-        const div = document.createElement("div");
+    const h=loadHistory();
+
+    h.forEach(item=>{
+        const div=document.createElement("div");
         div.style.borderBottom="1px solid #ddd";
-        div.style.marginBottom="5px";
-        const userDiv = document.createElement("div");
-        userDiv.style.color="#0277bd";
-        userDiv.textContent="Q: "+item.user;
-        const botDiv = document.createElement("div");
-        botDiv.textContent="A: "+item.bot;
-        div.appendChild(userDiv);
-        div.appendChild(botDiv);
+        div.innerHTML = "<strong>Q:</strong> " + item.user + "<br><strong>A:</strong> " + item.bot;
         content.appendChild(div);
-    }});
+    });
     modal.style.display="block";
-}}
+}
 
-function closeHistory() {{ el("historyModal").style.display="none"; }}
+function closeHistory(){ el("historyModal").style.display="none"; }
 
-function exportPDF() {{
-    const h = loadHistory();
-    if(h.length===0) {{
-        alert("Chưa có nội dung để xuất PDF!");
-        return;
-    }}
-    fetch("/export-pdf", {{
+function exportPDF(){
+    const h=loadHistory();
+    if(!h.length){ alert("Chưa có nội dung để xuất PDF!"); return; }
+    fetch("/export-pdf", {
         method:"POST",
-        headers:{{"Content-Type":"application/json"}},
-        body: JSON.stringify({{history:h}})
-    }})
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({history:h})
+    })
     .then(r=>r.blob())
-    .then(blob=> {{
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "Lich_trinh_du_lich.pdf";
+    .then(blob=>{
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement("a");
+        a.href=url; a.download="Lich_trinh_du_lich.pdf";
         a.click();
-        window.URL.revokeObjectURL(url);
-    }});
-}}
+        URL.revokeObjectURL(url);
+    });
+}
 
-function travelSearch() {{
-    const city = el("city").value||"";
-    const budget = el("budget").value||"";
-    const season = el("season").value||"";
-    const q = `Du lịch ${city} ngân sách ${budget} mùa ${season}`;
+function travelSearch(){
+    const q = `Du lịch ${el("city").value} ngân sách ${el("budget").value} mùa ${el("season").value}`;
     el("msg").value=q;
     sendMsg();
-}}
+}
 </script>
+
 </body>
 </html>
-"""
+""".format(builder=BUILDER_NAME, hotline=HOTLINE)
+
     return Response(html, mimetype="text/html")
+
 
 # ========= CHAT API =========
 @app.route("/chat", methods=["POST"])
@@ -295,12 +277,8 @@ def chat_api():
         return jsonify({"reply":"Vui lòng nhập nội dung."})
 
     prompt = (
-        "Bạn là chuyên gia du lịch Việt Nam và thế giới. Trả lời **text chuẩn**, phân chia khoa học:\n"
-        "- Tiêu đề rõ ràng: Thời gian, Lịch trình, Chi phí, Hình ảnh & Video\n"
-        "- Mỗi ngày: liệt kê chi tiết bullet points\n"
-        "- KHÔNG dùng HTML, KHÔNG iframe, không tự tạo link hình/video\n"
-        "- Dễ đọc, chuyên nghiệp, ví dụ:\n"
-        "Ngày 1: ...\n- Hình ảnh minh họa: Đà Lạt Hồ Xuân Hương\n- Video tham khảo: Đà Lạt"
+        "Bạn là chuyên gia du lịch Việt Nam và thế giới. Trả lời text rõ ràng:\n"
+        "- Lịch trình theo ngày\n- Chi phí\n- Gợi ý hình ảnh (không tạo link)\n- Gợi ý video (không tạo link)"
     )
 
     payload = {
@@ -313,34 +291,36 @@ def chat_api():
         r = requests.post(
             "https://api.openai.com/v1/chat/completions",
             headers={"Authorization":f"Bearer {OPENAI_API_KEY}","Content-Type":"application/json"},
-            json=payload, timeout=60
+            json=payload,
+            timeout=60
         )
         ai_text = r.json()["choices"][0]["message"]["content"]
 
-        image_queries = []
-        video_queries = []
+        image_queries=[]
+        video_queries=[]
+
         for line in ai_text.splitlines():
-            if line.strip().startswith("- Hình ảnh minh họa:"):
-                q = line.replace("- Hình ảnh minh họa:","").strip()
+            if "- Hình ảnh minh họa:" in line:
+                q=line.split(":",1)[1].strip()
                 if q: image_queries.append(q)
-            if line.strip().startswith("- Video tham khảo:"):
-                q = line.replace("- Video tham khảo:","").strip()
+            if "- Video tham khảo:" in line:
+                q=line.split(":",1)[1].strip()
                 if q: video_queries.append(q)
 
-        images = []
+        images=[]
         for q in image_queries:
-            imgs = google_image_search(q, num=1)
-            images.extend(imgs)
+            images.extend(google_image_search(q, num=1))
 
-        videos = []
+        videos=[]
         for q in video_queries:
-            vids = youtube_search(q, num=1)
-            videos.extend(vids)
+            videos.extend(youtube_search(q, num=1))
 
-        return jsonify({"reply":ai_text, "images":images, "videos":videos})
+        return jsonify({"reply":ai_text,"images":images,"videos":videos})
+
     except Exception as e:
         print(e)
         return jsonify({"reply":"Hệ thống đang bận, thử lại sau.","images":[],"videos":[]})
+
 
 # ========= EXPORT PDF =========
 @app.route("/export-pdf", methods=["POST"])
@@ -353,22 +333,23 @@ def export_pdf():
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
-    pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, "Lịch Trình Du Lịch", ln=True, align="C")
+    pdf.set_font("Arial","B",16)
+    pdf.cell(0,10,"Lịch Trình Du Lịch",ln=True,align="C")
     pdf.ln(5)
-    pdf.set_font("Arial", "", 12)
+    pdf.set_font("Arial","",12)
 
     for item in reversed(history):
         pdf.set_text_color(2,119,189)
-        pdf.multi_cell(0, 7, "Q: "+item.get("user",""))
+        pdf.multi_cell(0,7,"Q: "+item.get("user",""))
         pdf.set_text_color(0,0,0)
-        pdf.multi_cell(0, 7, "A: "+item.get("bot",""))
+        pdf.multi_cell(0,7,"A: "+item.get("bot",""))
         pdf.ln(3)
 
-    pdf_output = io.BytesIO()
-    pdf.output(pdf_output)
-    pdf_output.seek(0)
-    return send_file(pdf_output, download_name="Lich_trinh_du_lich.pdf", as_attachment=True)
+    output = io.BytesIO()
+    pdf.output(output)
+    output.seek(0)
+    return send_file(output, download_name="Lich_trinh_du_lich.pdf", as_attachment=True)
+
 
 # ========= RUN =========
 if __name__ == "__main__":
