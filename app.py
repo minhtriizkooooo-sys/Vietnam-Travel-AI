@@ -45,60 +45,155 @@ def home():
 <meta charset="UTF-8">
 <title>Vietnam Travel AI</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-body {{ margin:0; font-family: Arial, Helvetica, sans-serif; background:#f4f6f8; }}
-header {{ background:#0b7a3b; color:white; padding:15px 20px; display:flex; align-items:center; justify-content:flex-start; flex-wrap:wrap; }}
-header img {{ max-height:100px; width:auto; margin-right:20px; border-radius:8px; object-fit:contain; }}
-main {{ max-width:1000px; margin:auto; padding:20px; }}
-.chat-box {{ background:white; border-radius:8px; padding:15px; height:400px; max-height:60vh; overflow-y:auto; border:1px solid #ddd; line-height:1.6; font-size:14px; }}
+body {{
+    margin:0;
+    font-family: 'Roboto', sans-serif;
+    background:#f5f7fa;
+    color:#333;
+}}
+header {{
+    background:#0b7a3b;
+    color:white;
+    padding:15px 30px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    box-shadow:0 2px 5px rgba(0,0,0,0.1);
+}}
+header h1 {{
+    margin:0;
+    font-weight:700;
+    font-size:24px;
+}}
+header img {{
+    height:60px;
+    border-radius:8px;
+}}
+main {{
+    max-width:1000px;
+    margin:auto;
+    padding:20px;
+}}
+section {{
+    background:white;
+    border-radius:10px;
+    padding:20px;
+    margin-bottom:20px;
+    box-shadow:0 2px 5px rgba(0,0,0,0.05);
+}}
+h2 {{
+    margin-top:0;
+    font-size:20px;
+    color:#0b7a3b;
+}}
+.search-box {{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:10px;
+    margin-top:10px;
+}}
+.search-box input, .input-area input {{
+    padding:12px;
+    border-radius:6px;
+    border:1px solid #ccc;
+    font-size:14px;
+}}
+button {{
+    padding:12px;
+    border:none;
+    border-radius:6px;
+    cursor:pointer;
+    background:#0b7a3b;
+    color:white;
+    font-weight:500;
+    transition:0.2s;
+}}
+button:hover {{
+    background:#095a2a;
+}}
+.secondary {{
+    background:#888;
+}}
+.chat-box {{
+    background:#fdfdfd;
+    border-radius:8px;
+    padding:15px;
+    height:400px;
+    max-height:60vh;
+    overflow-y:auto;
+    border:1px solid #ddd;
+    line-height:1.6;
+    font-size:14px;
+}}
 .msg-user {{ text-align:right; color:#0b7a3b; margin:8px 0; }}
 .msg-bot {{ text-align:left; color:#333; margin:8px 0; }}
 .typing {{ color:#999; font-style:italic; }}
-.input-area {{ display:flex; gap:10px; margin-top:12px; }}
-input {{ flex:1; padding:12px; font-size:16px; }}
-button {{ padding:12px 16px; border:none; cursor:pointer; background:#0b7a3b; color:white; }}
-.secondary {{ background:#999; }}
-.search-box {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-bottom:15px; }}
-footer {{ margin-top:30px; padding:15px; background:#eee; font-size:14px; text-align:center; }}
+.input-area {{
+    display:flex;
+    gap:10px;
+    margin-top:12px;
+    flex-wrap:wrap;
+}}
+.suggested {{
+    margin-top:10px;
+}}
+.suggested button {{
+    margin:5px 5px 0 0;
+    font-size:13px;
+}}
+#history {{
+    max-height:200px;
+    overflow-y:auto;
+}}
+footer {{
+    text-align:center;
+    padding:15px;
+    font-size:14px;
+    background:#eee;
+    margin-top:30px;
+    border-top:1px solid #ddd;
+}}
 a {{ color:#0b7a3b; text-decoration:none; }}
 a:hover {{ text-decoration:underline; }}
 img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
-.suggested button {{ margin:3px; padding:6px 10px; font-size:13px; }}
-@media (max-width: 768px) {{
-    header {{ flex-direction: column; align-items:flex-start; }}
-    header img {{ max-height:60px; margin-bottom:10px; }}
-    .input-area {{ flex-direction: column; gap:8px; }}
-    .search-box {{ grid-template-columns: 1fr; }}
-    .chat-box {{ height:50vh; max-height:50vh; }}
+@media(max-width:768px){{
+    .search-box, .input-area {{ grid-template-columns:1fr; display:block; }}
+    .input-area input {{ width:100%; margin-bottom:10px; }}
+    header {{ flex-direction:column; align-items:flex-start; gap:10px; }}
 }}
 </style>
 </head>
 <body>
 <header>
     <img src="/static/Logo_Marie_Curie.png" alt="Logo">
-    <h2>Vietnam Travel AI</h2>
+    <h1>Vietnam Travel AI</h1>
 </header>
 
 <main>
-<h3>Google Travel-style Search</h3>
+<section>
+<h2>🔍 Tìm kiếm du lịch</h2>
 <div class="search-box">
     <input id="city" placeholder="Thành phố (Đà Lạt, Phú Quốc…)">
     <input id="budget" placeholder="Ngân sách (VD: 10 triệu)">
     <input id="season" placeholder="Mùa (hè, đông…)">
     <button onclick="travelSearch()">Tìm kiếm</button>
 </div>
+</section>
 
-<h3>Chat tư vấn du lịch</h3>
+<section>
+<h2>💬 Chat tư vấn du lịch</h2>
 <div id="chat" class="chat-box"></div>
-
 <div class="input-area">
     <input id="msg" placeholder="Hỏi lịch trình, chi phí, mùa đẹp nhất...">
     <button onclick="sendMsg()">Gửi</button>
     <button class="secondary" onclick="clearChat()">Xóa</button>
 </div>
-
 <div class="suggested" id="suggested"></div>
-<div id="history" class="chat-box" style="margin-top:15px;"></div>
+<div id="history" class="chat-box"></div>
+</section>
 
 </main>
 
