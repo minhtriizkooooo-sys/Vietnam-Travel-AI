@@ -1,311 +1,307 @@
-from flask import Flask, request, jsonify, Response, send_file
 import os
-import requests
 import io
+import uuid
+import sqlite3
+import requests
+from datetime import datetime
+from flask import (
+    Flask, request, jsonify, render_template, make_response, send_file
+)
 from fpdf import FPDF
+from flask_cors import CORS
 
-app = Flask(__name__)
-
-# ========= ENV =========
+# -------- CONFIG --------
+app = Flask(__name__, template_folder="templates", static_folder="static")
+CORS(app)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 SERPAPI_KEY = os.getenv("SERPAPI_KEY", "")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")
+DB_PATH = os.getenv("SQLITE_PATH", "chat_history.db")
 SITE_URL = os.getenv("SITE_URL", "https://vietnam-travel-ai.onrender.com")
 HOTLINE = os.getenv("HOTLINE", "+84-908-08-3566")
-BUILDER_NAME = os.getenv("BUILDER_NAME", "Vietnam Travel AI – Minh Trí")
+BUILDER_NAME = os.getenv("BUILDER_NAME", "Vietnam Travel AI - Lại Nguyễn Minh Trí")
 
+# -------- DB HELPERS --------
+def get_db_conn():
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
 
-# ========= GOOGLE SEARCH =========
-def google_image_search(query, num=3):
+def init_db():
+    conn = get_db_conn()
+    cur = conn.cursor()
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY,
+        created_at TEXT
+    )
+    """)
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT,
+        role TEXT,        -- 'user' or 'bot'
+        content TEXT,
+        created_at TEXT,
+        FOREIGN KEY(session_id) REFERENCES sessions(id)
+    )
+    """)
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# -------- UTIL --------
+def ensure_session():
+    # Get session_id from cookie, create if missing
+    sid = request.cookies.get("session_id")
+    if not sid:
+        sid = str(uuid.uuid4())
+        # insert session in DB
+        conn = get_db_conn()
+        conn.execute(
+            "INSERT OR IGNORE INTO sessions (id, created_at) VALUES (?, ?)",
+            (sid, datetime.utcnow().isoformat())
+        )
+        conn.commit()
+        conn.close()
+        # set cookie in response by caller
+    else:
+        # ensure session exists in DB
+        conn = get_db_conn()
+        cur = conn.cursor()
+        cur.execute("INSERT OR IGNORE INTO sessions (id, created_at) VALUES (?, ?)",
+                    (sid, datetime.utcnow().isoformat()))
+        conn.commit()
+        conn.close()
+    return sid
+
+def save_message(session_id, role, content):
+    conn = get_db_conn()
+    conn.execute(
+        "INSERT INTO messages (session_id, role, content, created_at) VALUES (?, ?, ?, ?)",
+        (session_id, role, content, datetime.utcnow().isoformat())
+    )
+    conn.commit()
+    conn.close()
+
+def fetch_history(session_id, limit=None):
+    conn = get_db_conn()
+    cur = conn.cursor()
+    q = "SELECT role, content, created_at FROM messages WHERE session_id = ? ORDER BY id ASC"
+    if limit:
+        q += " LIMIT ?"
+        cur.execute(q, (session_id, limit))
+    else:
+        cur.execute(q, (session_id,))
+    rows = cur.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+# -------- EXTERNAL HELPERS --------
+def call_openai_chat(system_prompt, user_content, temperature=0.6):
+    if not OPENAI_API_KEY:
+        return "OPENAI_API_KEY not configured."
+    url = "https://api.openai.com/v1/chat/completions"
+    payload = {
+        "model": "gpt-4o-mini",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content}
+        ],
+        "temperature": temperature,
+        "max_tokens": 700
+    }
+    headers = {"Authorization": f"Bearer {OPENAI_API_KEY}"}
+    r = requests.post(url, json=payload, headers=headers, timeout=60)
+    r.raise_for_status()
+    data = r.json()
+    return data["choices"][0]["message"]["content"]
+
+def generate_suggestions_from_ai(context_text, n=3):
+    system = "Bạn là trợ lý du lịch chuyên nghiệp. Dựa vào đoạn văn sau (là câu trả lời/đoạn chat cuối), hãy tạo ra {} câu hỏi gợi ý ngắn, phù hợp để người dùng hỏi tiếp (tiếng Việt). Trả về mỗi câu trên 1 dòng.".format(n)
+    try:
+        resp = call_openai_chat(system, context_text, temperature=0.9)
+        # split by newlines and take top n
+        lines = [l.strip() for l in resp.splitlines() if l.strip()]
+        return lines[:n] if lines else []
+    except Exception as e:
+        print("Suggestion AI error:", e)
+        return []
+
+# -------- SERPAPI (optional) --------
+def serpapi_image_search(query, num=3):
+    if not SERPAPI_KEY:
+        return []
     try:
         url = f"https://serpapi.com/search.json?q={query}&tbm=isch&num={num}&api_key={SERPAPI_KEY}"
         r = requests.get(url, timeout=10)
         r.raise_for_status()
         results = r.json().get("images_results", [])
-        return [item["original"] for item in results if "original" in item]
-    except:
+        return [item.get("original") for item in results if item.get("original")]
+    except Exception as e:
+        print("SerpAPI image error:", e)
         return []
 
-
-def youtube_search(query, num=2):
+def serpapi_video_search(query, num=2):
+    if not SERPAPI_KEY:
+        return []
     try:
         url = f"https://serpapi.com/search.json?q={query}&tbm=vid&num={num}&api_key={SERPAPI_KEY}"
         r = requests.get(url, timeout=10)
         r.raise_for_status()
         results = r.json().get("video_results", [])
-        return [item["link"] for item in results if "link" in item]
-    except:
+        return [item.get("link") for item in results if item.get("link")]
+    except Exception as e:
+        print("SerpAPI video error:", e)
         return []
 
-
-# ========= HOME =========
+# -------- ROUTES --------
 @app.route("/", methods=["GET"])
-def home():
-    html = """
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-<meta charset="UTF-8">
-<title>Vietnam Travel AI</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+def index():
+    # ensure session and set cookie if new
+    sid = request.cookies.get("session_id")
+    if not sid:
+        sid = ensure_session()
+        resp = make_response(render_template("ui.html", HOTLINE=os.getenv("HOTLINE", "+84-908-08-3566"),
+                                             BUILDER=os.getenv("BUILDER_NAME", "Vietnam Travel AI – Minh Trí")))
+        resp.set_cookie("session_id", sid, httponly=True, samesite="Lax")
+        return resp
+    return render_template("ui.html", HOTLINE=os.getenv("HOTLINE", "+84-908-08-3566"),
+                           BUILDER=os.getenv("BUILDER_NAME", "Vietnam Travel AI – Minh Trí"))
 
-<style>
-body {
-    background:#f7f7f8;
-    margin:0;
-    font-family: Inter, "Segoe UI", Arial;
-    color:#111;
-}
-
-/* ===== HEADER ===== */
-header {
-    background:white;
-    padding:14px 22px;
-    border-bottom:1px solid #e5e5e5;
-    display:flex;
-    align-items:center;
-    gap:14px;
-}
-header img {
-    height:42px;
-}
-header h1 {
-    font-size:20px;
-    margin:0;
-    font-weight:700;
-}
-
-/* ===== MAIN CONTAINER ===== */
-.container {
-    max-width:820px;
-    margin:0 auto;
-    padding:20px 12px;
-}
-
-/* ===== CHAT BOX STYLE A (ChatGPT-like) ===== */
-.chat-box {
-    background:white;
-    border-radius:14px;
-    padding:20px;
-    height:480px;
-    overflow-y:auto;
-    border:1px solid #ddd;
-    box-shadow:0 4px 20px rgba(0,0,0,0.04);
-}
-
-.bubble-user {
-    background:#0c7d42;
-    color:white;
-    padding:12px 14px;
-    border-radius:12px;
-    margin:14px 0;
-    max-width:75%;
-    margin-left:auto;
-    white-space:pre-wrap;
-}
-
-.bubble-bot {
-    background:#f2f2f2;
-    padding:12px 14px;
-    border-radius:12px;
-    margin:14px 0;
-    max-width:75%;
-    white-space:pre-wrap;
-}
-
-/* suggestions */
-#suggested {
-    margin-top:12px;
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px;
-}
-.suggestion-btn {
-    background:white;
-    border:1px solid #ddd;
-    border-radius:14px;
-    padding:8px 12px;
-    cursor:pointer;
-    font-size:14px;
-}
-.suggestion-btn:hover {
-    background:#f2f2f2;
-}
-
-/* input box */
-.input-area {
-    margin-top:16px;
-    display:flex;
-    gap:8px;
-}
-.input-area input {
-    flex:1;
-    padding:12px 14px;
-    border-radius:12px;
-    border:1px solid #ccc;
-}
-.input-area button {
-    padding:12px 16px;
-    background:#0c7d42;
-    color:white;
-    border:0;
-    border-radius:12px;
-    cursor:pointer;
-    font-weight:600;
-}
-
-/* footer */
-footer {
-    text-align:center;
-    margin-top:20px;
-    color:#777;
-    font-size:13px;
-}
-</style>
-</head>
-
-<body>
-
-<header>
-    <img src="/static/Logo_Marie_Curie.png">
-    <h1>Vietnam Travel AI</h1>
-</header>
-
-<div class="container">
-
-    <div id="chat" class="chat-box"></div>
-
-    <div id="suggested"></div>
-
-    <div class="input-area">
-        <input id="msg" placeholder="Hãy hỏi lịch trình, khách sạn, chi phí, mùa đẹp nhất...">
-        <button onclick="sendMsg()">Gửi</button>
-    </div>
-
-    <footer>
-        Hotline: <b>__HOTLINE__</b><br>
-        © 2025 – <b>__BUILDER__</b>
-    </footer>
-
-</div>
-
-<script src="/static/chat.js"></script>
-
-</body>
-</html>
-"""
-    html = html.replace("__HOTLINE__", HOTLINE)
-    html = html.replace("__BUILDER__", BUILDER_NAME)
-    return Response(html, mimetype="text/html")
-
-
-# ========= CHAT API =========
 @app.route("/chat", methods=["POST"])
-def chat_api():
+def chat():
+    sid = ensure_session()
+    # If cookie missing in request, will rely on ensure_session(), but client should keep cookie.
     data = request.json or {}
     msg = data.get("msg", "").strip()
-
     if not msg:
-        return jsonify({"reply": "Bạn cần nhập nội dung."})
+        return jsonify({"error": "empty message"}), 400
 
+    # Save user message
+    save_message(sid, "user", msg)
+
+    # Build system prompt for travel expert (you can customize)
     system_prompt = (
         "Bạn là chuyên gia du lịch Việt Nam và thế giới. Trả lời với format:\n"
         "1) Thời gian\n"
         "2) Lịch trình\n"
         "3) Chi phí\n"
-        "4) Hình ảnh minh họa và video\n"
-        "Không dùng HTML."
+        "4) Hình ảnh minh họa và video\n        "
+        "Trả bằng tiếng Việt. Không dùng HTML."
     )
-
-    payload = {
-        "model": "gpt-4o-mini",
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": msg}
-        ],
-        "temperature": 0.6
-    }
-
     try:
-        r = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
-            json=payload,
-            timeout=60
-        )
-
-        resp = r.json()
-        reply = resp["choices"][0]["message"]["content"]
-
-        image_queries = []
-        video_queries = []
-        for line in reply.splitlines():
-            if line.startswith("- Hình ảnh minh họa:"):
-                q = line.replace("- Hình ảnh minh họa:", "").strip()
-                if q: image_queries.append(q)
-            if line.startswith("- Video tham khảo:"):
-                q = line.replace("- Video tham khảo:", "").strip()
-                if q: video_queries.append(q)
-
-        images = []
-        videos = []
-        for x in image_queries:
-            images.extend(google_image_search(x, 2))
-        for x in video_queries:
-            videos.extend(youtube_search(x, 2))
-
-        suggestions = [
-            "Tính chi phí chi tiết?",
-            "Gợi ý lịch trình tối ưu hơn?",
-            "Đi mùa này có đẹp không?",
-            "Có món đặc sản nào nên thử?"
-        ]
-
-        return jsonify({
-            "reply": reply,
-            "images": images,
-            "videos": videos,
-            "suggested": suggestions
-        })
-
+        # Call OpenAI for the main reply
+        bot_reply = call_openai_chat(system_prompt, msg, temperature=0.6)
     except Exception as e:
-        print("CHAT ERROR:", e)
-        return jsonify({"reply": "Lỗi hệ thống. Thử lại sau."})
+        print("OpenAI main chat error:", e)
+        bot_reply = "Lỗi khi gọi OpenAI. Vui lòng thử lại sau."
+
+    # Save bot reply to DB
+    save_message(sid, "bot", bot_reply)
+
+    # Try extract image/video queries from bot_reply (flexible)
+    image_queries = []
+    video_queries = []
+    for line in bot_reply.splitlines():
+        low = line.lower()
+        if "hình ảnh" in low or "ảnh" in low:
+            # take text after ':' if exists
+            if ":" in line:
+                q = line.split(":", 1)[1].strip()
+            else:
+                q = line.strip()
+            if q:
+                image_queries.append(q)
+        if "video" in low:
+            if ":" in line:
+                q = line.split(":", 1)[1].strip()
+            else:
+                q = line.strip()
+            if q:
+                video_queries.append(q)
+
+    images = []
+    videos = []
+    for q in image_queries:
+        images.extend(serpapi_image_search(q, 3))
+    for q in video_queries:
+        videos.extend(serpapi_video_search(q, 2))
+
+    # If no image suggestions, try fallback based on msg
+    if not images:
+        images = serpapi_image_search(msg.split(",")[0], 3)
+
+    # Generate AI-based dynamic suggestions (based on bot_reply and recent context)
+    # We'll use last bot reply as context for suggestions
+    suggestions = generate_suggestions_from_ai(bot_reply, n=4)
+
+    return jsonify({
+        "reply": bot_reply,
+        "images": images,
+        "videos": videos,
+        "suggested": suggestions
+    })
 
 
-# ========= EXPORT PDF =========
+@app.route("/history", methods=["GET"])
+def history():
+    sid = request.cookies.get("session_id")
+    if not sid:
+        return jsonify({"history": []})
+    rows = fetch_history(sid)
+    return jsonify({"history": rows})
+
+
 @app.route("/export-pdf", methods=["POST"])
 def export_pdf():
-    data = request.json or {}
-    history = data.get("history", [])
-
+    sid = request.cookies.get("session_id")
+    if not sid:
+        return jsonify({"error": "No session"}), 400
+    history = fetch_history(sid)
     if not history:
-        return jsonify({"error": "Không có dữ liệu."}), 400
+        return jsonify({"error": "No history"}), 400
 
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=10)
     pdf.add_page()
     pdf.set_font("Arial", "B", 16)
-    pdf.cell(0, 10, "Lịch trình du lịch", ln=True, align="C")
+    pdf.cell(0, 10, "Lịch sử chat - Vietnam Travel AI", ln=True, align="C")
     pdf.ln(6)
     pdf.set_font("Arial", "", 12)
 
     for item in history:
-        user_text = item.get("msg", "")
-        bot_text = item.get("reply", "")
-
+        role = item.get("role", "")
+        content = item.get("content", "")
+        created = item.get("created_at", "")
+        header = f"[{role.upper()} - {created}]"
         pdf.set_text_color(0, 70, 140)
-        pdf.multi_cell(0, 7, "Q: " + user_text)
+        pdf.multi_cell(0, 7, header)
         pdf.set_text_color(0, 0, 0)
-        pdf.multi_cell(0, 7, "A: " + bot_text)
+        # Ensure long lines wrap
+        pdf.multi_cell(0, 7, content)
         pdf.ln(3)
 
     pdf_bytes = pdf.output(dest="S").encode("latin1")
     buf = io.BytesIO(pdf_bytes)
     buf.seek(0)
-    return send_file(buf, mimetype="application/pdf", download_name="Lich_trinh.pdf", as_attachment=True)
+    return send_file(buf, mimetype="application/pdf", download_name="history.pdf", as_attachment=True)
 
 
-# ========= RUN =========
+@app.route("/clear-history", methods=["POST"])
+def clear_history():
+    sid = request.cookies.get("session_id")
+    if not sid:
+        return jsonify({"ok": True})
+    conn = get_db_conn()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM messages WHERE session_id = ?", (sid,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+# -------- RUN --------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
