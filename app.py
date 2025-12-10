@@ -180,15 +180,16 @@ def chat_api():
         "Ngày 1: ...\n- Hình ảnh minh họa: Đà Lạt Hồ Xuân Hương\n- Video tham khảo: Đà Lạt"
     )
 
-    payload = {
+   payload = {
         "model": "gpt-4o-mini",
         "messages": [
             {"role":"system","content": prompt},
             {"role":"user","content": msg}
         ],
         "temperature":0.6
-    }
+   } 
 
+   
    try:
         r = requests.post(
             "https://api.openai.com/v1/chat/completions",
