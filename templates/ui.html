@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Vietnam Travel AI</title>
+  <style>
+    :root{
+      --bg:#f7f7f8;
+      --card:#ffffff;
+      --accent:#0c7d42;
+      --muted:#6b7280;
+    }
+    html,body{height:100%;margin:0;font-family:Inter, "Segoe UI", Arial;background:var(--bg)}
+    .app{max-width:900px;margin:18px auto;padding:12px}
+    header{display:flex;align-items:center;gap:12px;background:var(--card);padding:12px;border-radius:8px}
+    header img{height:48px}
+    header h1{margin:0;font-size:18px}
+    .chat-shell{display:flex;flex-direction:column;background:var(--card);margin-top:12px;border-radius:12px;overflow:hidden;height:72vh;border:1px solid #e5e7eb}
+    .messages{flex:1;padding:18px;overflow:auto;background:linear-gradient(180deg,#f8fffb,white)}
+    .input-row{display:flex;padding:12px;border-top:1px solid #eee;gap:8px}
+    .input-row input{flex:1;padding:12px;border-radius:10px;border:1px solid #ddd}
+    .input-row button{background:var(--accent);color:white;border:none;padding:10px 14px;border-radius:10px;cursor:pointer}
+    .bubble{max-width:75%;padding:10px 12px;border-radius:12px;margin:8px 0}
+    .bubble.user{margin-left:auto;background:var(--accent);color:white}
+    .bubble.bot{background:#f3f4f6;color:#111}
+    .suggestions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .suggestions button{background:white;border:1px solid #ddd;padding:8px 10px;border-radius:10px;cursor:pointer}
+    .toolbar{margin-top:10px;display:flex;gap:8px;align-items:center}
+    .toolbar button{padding:8px 10px;border-radius:8px;border:1px solid #ddd;background:white;cursor:pointer}
+    .img-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+    .img-row img{width:140px;height:90px;object-fit:cover;border-radius:8px}
+    footer{margin-top:14px;text-align:center;color:var(--muted);font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <img src="/static/Logo_Marie_Curie.png" alt="Logo">
+      <div>
+        <h1>Vietnam Travel AI</h1>
+        <div style="font-size:13px;color:var(--muted)"><?php /* placeholder */ ?></div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <button id="btn-history" class="toolbar-btn">Lịch sử</button>
+        <button id="btn-export" class="toolbar-btn">Xuất PDF</button>
+        <button id="btn-clear" class="toolbar-btn">Xóa lịch sử</button>
+      </div>
+    </header>
+
+    <div class="chat-shell">
+      <div id="messages" class="messages"></div>
+
+      <div style="padding:12px">
+        <div id="suggestions" class="suggestions"></div>
+      </div>
+
+      <div class="input-row">
+        <input id="msg" placeholder="Hãy hỏi lịch trình, khách sạn, chi phí, mùa đẹp nhất..." />
+        <button id="send">Gửi</button>
+      </div>
+    </div>
+
+    <footer>
+      Hotline: <strong>{{ HOTLINE }}</strong> — © 2025 – <strong>{{ BUILDER }}</strong>
+    </footer>
+  </div>
+
+  <script src="/static/chat.js"></script>
+</body>
+</html>
