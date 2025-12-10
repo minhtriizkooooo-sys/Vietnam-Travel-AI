@@ -1,159 +1,163 @@
-const chatBox = document.getElementById("chat-box");
-const input = document.getElementById("chat-input");
-const sendBtn = document.getElementById("send-btn");
-const suggestionsBox = document.getElementById("suggestions");
-const historyBtn = document.getElementById("history-btn");
-const clearHistoryBtn = document.getElementById("clear-history");
-const exportPdfBtn = document.getElementById("export-pdf");
-const travelSearchInput = document.getElementById("travel-search");
+// Chat UI behavior (ChatGPT-like)
+const messagesEl = document.getElementById("messages");
+const msgInput = document.getElementById("msg");
+const sendBtn = document.getElementById("send");
+const suggestionsEl = document.getElementById("suggestions");
+const btnExport = document.getElementById("btn-export");
+const btnClear = document.getElementById("btn-clear");
+const btnHistory = document.getElementById("btn-history");
 
-let history = JSON.parse(localStorage.getItem("chat_history") || "[]");
-
-renderHistoryToScreen();
-
-// ========== SEND MESSAGE ==========
-sendBtn.onclick = () => sendMessage();
-input.onkeydown = (e) => { if (e.key === "Enter") sendMessage(); };
-
-function sendMessage() {
-    const text = input.value.trim();
-    if (!text) return;
-
-    appendMessage("user", text);
-    saveHistory("user", text);
-
-    input.value = "";
-    callAPI(text);
+async function getHistory() {
+  try {
+    const r = await fetch("/history");
+    const j = await r.json();
+    return j.history || [];
+  } catch (e) {
+    return [];
+  }
 }
 
-// ========== CALL API ==========
-function callAPI(message) {
-    fetch("/chat", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({message})
-    })
-    .then(r => r.json())
-    .then(data => {
-        appendMessage("bot", data.answer);
-        saveHistory("bot", data.answer);
-
-        if (data.images) renderImages(data.images);
-        if (data.videos) renderVideos(data.videos);
-        if (data.suggestions) renderSuggestions(data.suggestions);
-    });
+function appendBubble(role, text) {
+  const b = document.createElement("div");
+  b.className = "bubble " + (role === "user" ? "user" : "bot");
+  // allow simple line breaks
+  b.innerText = text;
+  messagesEl.appendChild(b);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-// ========== RENDER MESSAGES ==========
-function appendMessage(sender, text) {
-    const div = document.createElement("div");
-    div.className = sender === "user" ? "msg user" : "msg bot";
-    div.innerText = text;
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-// ========== IMAGE GALLERY ==========
 function renderImages(images) {
-    if (!images.length) return;
-    const wrap = document.createElement("div");
-    wrap.className = "img-wrap";
-
-    images.forEach(url => {
-        const img = document.createElement("img");
-        img.src = url;
-        wrap.appendChild(img);
-    });
-
-    chatBox.appendChild(wrap);
+  if (!images || !images.length) return;
+  const row = document.createElement("div");
+  row.className = "img-row";
+  images.slice(0,6).forEach(src => {
+    const img = document.createElement("img");
+    img.src = src;
+    row.appendChild(img);
+  });
+  messagesEl.appendChild(row);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-// ========== VIDEO LINKS ==========
 function renderVideos(videos) {
-    if (!videos.length) return;
-    const wrap = document.createElement("div");
-    wrap.className = "video-wrap";
-
-    videos.forEach(v => {
-        const a = document.createElement("a");
-        a.href = v.link;
-        a.target = "_blank";
-        a.innerText = "▶ " + v.title;
-        wrap.appendChild(a);
-    });
-
-    chatBox.appendChild(wrap);
+  if (!videos || !videos.length) return;
+  videos.slice(0,4).forEach(link => {
+    const a = document.createElement("a");
+    a.href = link;
+    a.target = "_blank";
+    a.innerText = "▶ Xem video tham khảo";
+    a.style.display = "block";
+    a.style.marginTop = "6px";
+    messagesEl.appendChild(a);
+  });
+  messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-// ========== SUGGESTIONS ==========
 function renderSuggestions(list) {
-    suggestionsBox.innerHTML = "";
-    list.forEach(s => {
-        const btn = document.createElement("button");
-        btn.className = "suggest-btn";
-        btn.innerText = s;
-        btn.onclick = () => {
-            input.value = s;
-            sendMessage();
-        };
-        suggestionsBox.appendChild(btn);
+  suggestionsEl.innerHTML = "";
+  if (!list || !list.length) return;
+  list.forEach(s => {
+    const btn = document.createElement("button");
+    btn.innerText = s;
+    btn.onclick = () => {
+      msgInput.value = s;
+      sendMsg();
+    };
+    suggestionsEl.appendChild(btn);
+  });
+}
+
+async function sendMsg() {
+  const text = msgInput.value.trim();
+  if (!text) return;
+  appendBubble("user", text);
+  msgInput.value = "";
+  // show interim
+  appendBubble("bot", "Đang xử lý...");
+  const placeholder = messagesEl.lastChild;
+
+  try {
+    const r = await fetch("/chat", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({msg: text})
     });
+    const j = await r.json();
+    // replace placeholder
+    placeholder.remove();
+    appendBubble("bot", j.reply || "Không có phản hồi.");
+    if (j.images && j.images.length) renderImages(j.images);
+    if (j.videos && j.videos.length) renderVideos(j.videos);
+    if (j.suggested) renderSuggestions(j.suggested);
+  } catch (e) {
+    placeholder.remove();
+    appendBubble("bot", "Lỗi hệ thống. Thử lại.");
+    console.error(e);
+  }
 }
 
-// ========== HISTORY ==========
-function saveHistory(sender, text) {
-    history.push({sender, text});
-    localStorage.setItem("chat_history", JSON.stringify(history));
-}
+sendBtn.onclick = sendMsg;
+msgInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendMsg();
+  }
+});
 
-function renderHistoryToScreen() {
-    chatBox.innerHTML = "";
-    history.forEach(h => appendMessage(h.sender, h.text));
-}
+// load history on start
+(async function init() {
+  const hist = await getHistory();
+  messagesEl.innerHTML = "";
+  hist.forEach(item => {
+    appendBubble(item.role, item.content);
+  });
+})();
 
-// ========== CLEAR HISTORY ==========
-clearHistoryBtn.onclick = () => {
-    fetch("/clear-history", {method:"POST"})
-    history = [];
-    localStorage.removeItem("chat_history");
-    renderHistoryToScreen();
-};
-
-// ========== EXPORT PDF ==========
-exportPdfBtn.onclick = () => {
-    fetch("/export-pdf", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({history})
-    })
-    .then(r => r.blob())
-    .then(blob => {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "chat_history.pdf";
-        a.click();
-        URL.revokeObjectURL(url);
-    });
-};
-
-// ========== TRAVEL SEARCH ==========
-travelSearchInput.onkeydown = (e) => {
-    if (e.key === "Enter") {
-        fetch("/travel-search", {
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({query: travelSearchInput.value})
-        })
-        .then(r => r.json())
-        .then(data => {
-            suggestionsBox.innerHTML = "";
-            data.results.forEach(item => {
-                const div = document.createElement("div");
-                div.className = "travel-result";
-                div.innerHTML = `<b>${item.title}</b><br>${item.snippet}<br><a href="${item.link}" target="_blank">Xem chi tiết</a>`;
-                suggestionsBox.appendChild(div);
-            });
-        });
+// Export PDF (session-based)
+btnExport.onclick = async () => {
+  try {
+    const resp = await fetch("/export-pdf", {method: "POST"});
+    if (!resp.ok) {
+      alert("Không thể xuất PDF: " + (await resp.text()));
+      return;
     }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "history.pdf";
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert("Lỗi xuất PDF");
+    console.error(e);
+  }
+};
+
+// Clear history for this session
+btnClear.onclick = async () => {
+  if (!confirm("Xóa toàn bộ lịch sử chat cho phiên này?")) return;
+  try {
+    await fetch("/clear-history", {method: "POST"});
+    messagesEl.innerHTML = "";
+    suggestionsEl.innerHTML = "";
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+// Show history modal (simple alert listing)
+btnHistory.onclick = async () => {
+  const hist = await getHistory();
+  if (!hist.length) {
+    alert("Chưa có lịch sử.");
+    return;
+  }
+  let s = "";
+  hist.forEach(h => {
+    s += `[${h.role}] ${h.content}\n\n`;
+  });
+  // For long history maybe better open new window or download; for now use prompt
+  const w = window.open("", "_blank");
+  w.document.write("<pre>" + s.replace(/</g, "&lt;") + "</pre>");
 };
