@@ -41,7 +41,6 @@ def youtube_search(query, num=2):
 # ========= HOME =========
 @app.route("/", methods=["GET"])
 def home():
-    # Không dùng format, không dùng f-string để tránh lỗi CSS { }
     html = """
 <!DOCTYPE html>
 <html lang="vi">
@@ -51,35 +50,35 @@ def home():
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
-body {{ margin:0; font-family: Arial, Helvetica, sans-serif; background:#e0f7fa; }}
-header {{ background:#0b7a3b; color:white; padding:15px 20px; display:flex; align-items:center; justify-content:flex-start; flex-wrap:wrap; }}
-header img {{ max-height:100px; width:auto; margin-right:20px; border-radius:8px; object-fit:contain; }}
-main {{ max-width:1000px; margin:auto; padding:20px; }}
-.chat-box {{ background:white; border-radius:8px; padding:15px; height:500px; max-height:70vh; overflow-y:auto; border:1px solid #ddd; line-height:1.6; font-size:14px; }}
-.user {{ text-align:right; color:#0b7a3b; margin:8px 0; }}
-.bot {{ text-align:left; color:#333; margin:8px 0; }}
-.typing {{ color:#999; font-style:italic; }}
-.input-area {{ display:flex; gap:10px; margin-top:12px; }}
-input {{ flex:1; padding:12px; font-size:16px; }}
-button {{ padding:12px 16px; border:none; cursor:pointer; background:#0b7a3b; color:white; }}
-.secondary {{ background:#999; }}
-.search-box {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-bottom:15px; }}
-footer {{ margin-top:30px; padding:15px; background:#eee; font-size:14px; text-align:center; }}
-a {{ color:#0b7a3b; text-decoration:none; }}
-a:hover {{ text-decoration:underline; }}
-img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
+body { margin:0; font-family: Arial, Helvetica, sans-serif; background:#e0f7fa; }
+header { background:#0b7a3b; color:white; padding:15px 20px; display:flex; align-items:center; justify-content:flex-start; flex-wrap:wrap; }
+header img { max-height:60px; width:auto; margin-right:20px; border-radius:8px; object-fit:contain; }
+header h2 { font-size:28px; font-weight:bold; }
 
+main { max-width:1000px; margin:auto; padding:20px; }
+.chat-box { background:white; border-radius:8px; padding:15px; height:500px; max-height:70vh; overflow-y:auto; border:1px solid #ddd; line-height:1.6; font-size:14px; }
+.user { text-align:right; color:#0b7a3b; margin:8px 0; }
+.bot { text-align:left; color:#333; margin:8px 0; }
+.typing { color:#999; font-style:italic; }
+.input-area { display:flex; gap:10px; margin-top:12px; }
+input { flex:1; padding:12px; font-size:16px; }
+button { padding:12px 16px; border:none; cursor:pointer; background:#0b7a3b; color:white; }
+.secondary { background:#999; }
+.search-box { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-bottom:15px; }
+footer { margin-top:30px; padding:15px; background:#eee; font-size:14px; text-align:center; }
+a { color:#0b7a3b; text-decoration:none; }
+a:hover { text-decoration:underline; }
+img { max-width:100%; border-radius:6px; margin:5px 0; }
 
-
-.modal {{
+.modal {
     display:none;
     position: fixed;
     z-index: 1000;
     padding-top: 60px;
     left:0; top:0; width:100%; height:100%;
     overflow:auto; background-color: rgba(0,0,0,0.4);
-}}
-.modal-content {{
+}
+.modal-content {
     background-color: #fefefe;
     margin: auto;
     padding: 20px;
@@ -88,23 +87,23 @@ img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
     max-height:80vh;
     overflow-y:auto;
     border-radius:8px;
-}}
-.close-modal {{
+}
+.close-modal {
     color: #aaa;
     float:right;
     font-size:28px;
     font-weight:bold;
     cursor:pointer;
-}}
-.close-modal:hover {{ color: black; }}
+}
+.close-modal:hover { color: black; }
 
-@media (max-width: 768px) {{
-    header {{ flex-direction: column; align-items:flex-start; }}
-    header img {{ max-height:60px; margin-bottom:10px; }}
-    .input-area {{ flex-direction: column; gap:8px; }}
-    .search-box {{ grid-template-columns: 1fr; }}
-    .chat-box {{ height:60vh; max-height:60vh; }}
-}}
+@media (max-width: 768px) {
+    header { flex-direction: column; align-items:flex-start; }
+    header img { max-height:50px; margin-bottom:10px; }
+    .input-area { flex-direction: column; gap:8px; }
+    .search-box { grid-template-columns: 1fr; }
+    .chat-box { height:60vh; max-height:60vh; }
+}
 </style>
 </head>
 
@@ -118,7 +117,7 @@ img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
 <h3>Google Travel-style Search</h3>
 <div class="search-box">
     <input id="city" placeholder="Thành phố (Hà Nội, Đà Nẵng, Đà Lạt, Phú Quốc…)">
-    <input id="budget" placeholder="Ngân sách (VD: , 20 triệu, 10 triệu...)">
+    <input id="budget" placeholder="Ngân sách (VD: 20 triệu, 10 triệu...)">
     <input id="season" placeholder="Mùa (hè, đông…)">
     <button onclick="travelSearch()">Tìm kiếm</button>
 </div>
@@ -152,11 +151,8 @@ img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
 </body>
 </html>
 """
-
-    # Thay thế biến safely
     html = html.replace("__BUILDER__", BUILDER_NAME)
     html = html.replace("__HOTLINE__", HOTLINE)
-
     return Response(html, mimetype="text/html")
 
 
@@ -164,71 +160,75 @@ img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
 @app.route("/chat", methods=["POST"])
 def chat_api():
     data = request.json or {}
-    msg = data.get("message", "").trim() if hasattr(str, "trim") else data.get("message", "").strip()
+    msg = data.get("message", "")
+    msg = msg.strip()
 
     if not msg:
         return jsonify({"reply": "Vui lòng nhập nội dung."})
 
-    # --- AI TEXT RESPONSE ---
-    
     prompt = (
-        "Bạn là chuyên gia du lịch Việt Nam và thế giới. Trả lời **text chuẩn**, phân chia khoa học:\n"
-        "- Tiêu đề rõ ràng: Thời gian, Lịch trình, Chi phí, Hình ảnh & Video\n"
-        "- Mỗi ngày: liệt kê chi tiết bullet points\n"
-        "- KHÔNG dùng HTML, KHÔNG iframe, không tự tạo link hình/video\n"
-        "- Dễ đọc, chuyên nghiệp, ví dụ:\n"
-        "Ngày 1: ...\n- Hình ảnh minh họa: Đà Lạt Hồ Xuân Hương\n- Video tham khảo: Đà Lạt"
+        "Bạn là chuyên gia du lịch Việt Nam và thế giới. Trả lời text rõ ràng:\n"
+        "- Phần 1: Thời gian\n"
+        "- Phần 2: Lịch trình theo ngày\n"
+        "- Phần 3: Chi phí\n"
+        "- Phần 4: Hình ảnh & Video\n"
+        "Không dùng HTML.\n"
+        "Ví dụ:\n"
+        "Ngày 1: ...\n"
+        "- Hình ảnh minh họa: Đà Lạt Hồ Xuân Hương\n"
+        "- Video tham khảo: Đà Lạt"
     )
 
-   payload = {
+    payload = {
         "model": "gpt-4o-mini",
         "messages": [
-            {"role":"system","content": prompt},
-            {"role":"user","content": msg}
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": msg}
         ],
-        "temperature":0.6
-   } 
+        "temperature": 0.6
+    }
 
-   
-   try:
+    try:
         r = requests.post(
             "https://api.openai.com/v1/chat/completions",
             headers={
                 "Authorization": f"Bearer {OPENAI_API_KEY}",
-                "Content-Type":"application/json"
+                "Content-Type": "application/json"
             },
             json=payload,
             timeout=60
         )
+
         ai_text = r.json()["choices"][0]["message"]["content"]
 
-        # --- Extract keywords for images/videos (simple: lines with "Hình ảnh"/"Video") ---
         image_queries = []
         video_queries = []
+
         for line in ai_text.splitlines():
             if line.strip().startswith("- Hình ảnh minh họa:"):
                 q = line.replace("- Hình ảnh minh họa:", "").strip()
-                if q: image_queries.append(q)
+                if q:
+                    image_queries.append(q)
+
             if line.strip().startswith("- Video tham khảo:"):
                 q = line.replace("- Video tham khảo:", "").strip()
-                if q: video_queries.append(q)
+                if q:
+                    video_queries.append(q)
 
-        # --- Search real images & videos via SerpAPI ---
         images = []
         for q in image_queries:
-            imgs = google_image_search(q, num=1)
-            images.extend(imgs)
+            images.extend(google_image_search(q, num=1))
 
         videos = []
         for q in video_queries:
-            vids = youtube_search(q, num=1)
-            videos.extend(vids)
+            videos.extend(youtube_search(q, num=1))
 
         return jsonify({"reply": ai_text, "images": images, "videos": videos})
 
     except Exception as e:
         print(e)
-        return jsonify({"reply":"Hệ thống đang bận, thử lại sau.", "images":[], "videos":[]})
+        return jsonify({"reply": "Hệ thống đang bận, thử lại sau.", "images": [], "videos": []})
+
 
 # ========= EXPORT PDF =========
 @app.route("/export-pdf", methods=["POST"])
