@@ -1,21 +1,25 @@
 function el(id) { return document.getElementById(id); }
 
 function appendUser(msg) {
-    el("chat").innerHTML += `<div class="bubble-user">🧑‍💬 ${msg}</div>`;
+    el("chat").innerHTML += `
+        <div class="bubble-user">${msg}</div>
+    `;
     el("chat").scrollTop = el("chat").scrollHeight;
 }
 
 function appendBot(msg) {
-    el("chat").innerHTML += `<div class="bubble-bot">🤖 ${msg}</div>`;
+    el("chat").innerHTML += `
+        <div class="bubble-bot">${msg}</div>
+    `;
     el("chat").scrollTop = el("chat").scrollHeight;
 }
 
-function sendMessage() {
-    const msg = el("message").value.trim();
+function sendMsg() {
+    const msg = el("msg").value.trim();
     if (!msg) return;
 
     appendUser(msg);
-    el("message").value = "";
+    el("msg").value = "";
 
     fetch("/chat", {
         method: "POST",
@@ -26,59 +30,22 @@ function sendMessage() {
     .then(d => {
         appendBot(d.reply);
 
-        // lưu lịch sử
-        const h = JSON.parse(localStorage.getItem("chat_history") || "[]");
+        // Save local history
+        let h = JSON.parse(localStorage.getItem("chat_history") || "[]");
         h.push({msg, reply: d.reply});
         localStorage.setItem("chat_history", JSON.stringify(h));
 
-        // render suggested
+        // render suggestions
         el("suggested").innerHTML = "";
-        (d.suggested || []).forEach(s => {
+        (d.suggested || []).forEach(text => {
             let b = document.createElement("div");
-            b.className = "suggested-item";
-            b.innerText = s;
-            b.onclick = () => { el("message").value = s; sendMessage(); };
+            b.className = "suggestion-btn";
+            b.innerText = text;
+            b.onclick = () => {
+                el("msg").value = text;
+                sendMsg();
+            };
             el("suggested").appendChild(b);
         });
     });
-}
-
-function exportPDF() {
-    const h = JSON.parse(localStorage.getItem("chat_history") || "[]");
-
-    if (!h.length) {
-        alert("Không có lịch sử để xuất PDF!");
-        return;
-    }
-
-    fetch("/export-pdf", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({history: h})
-    })
-    .then(r => r.blob())
-    .then(b => {
-        const url = URL.createObjectURL(b);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "TravelChat.pdf";
-        a.click();
-        URL.revokeObjectURL(url);
-    });
-}
-
-function showHistory() {
-    const h = JSON.parse(localStorage.getItem("chat_history") || "[]");
-    el("historyContent").innerHTML = "";
-
-    h.forEach(i => {
-        el("historyContent").innerHTML +=
-           `<div><b>🧑‍💬 ${i.msg}</b><br>${i.reply}<hr></div>`;
-    });
-
-    el("historyModal").style.display = "block";
-}
-
-function closeHistory() {
-    el("historyModal").style.display = "none";
 }
