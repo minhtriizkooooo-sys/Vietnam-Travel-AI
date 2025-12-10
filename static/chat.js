@@ -1,197 +1,84 @@
-// ================== UTILS ==================
 function el(id) { return document.getElementById(id); }
 
-const chat = el("chat");
-const historyBox = el("history");
-const suggestedBox = el("suggested");
-let lastBotMessage = "";
-let lastImages = [];
-let lastVideos = [];
-
-// ================== HISTORY ==================
-function loadHistory() {
-    const h = JSON.parse(localStorage.getItem("chat_history") || "[]");
-    historyBox.innerHTML = "";
-    h.forEach((item, idx) => {
-        const div = document.createElement("div");
-        div.className = "history-item";
-        div.textContent = item.msg; // hiển thị câu hỏi
-        div.onclick = () => {
-            chat.innerHTML = ""; // Xóa chat hiện tại
-            appendUser(item.msg);
-            appendBot(item.reply, item.images, item.videos);
-        };
-        historyBox.appendChild(div);
-    });
+function appendUser(msg) {
+    el("chat").innerHTML += `<div class="bubble-user">🧑‍💬 ${msg}</div>`;
+    el("chat").scrollTop = el("chat").scrollHeight;
 }
 
-function saveHistory(msg, reply = "", images = [], videos = []) {
-    let h = JSON.parse(localStorage.getItem("chat_history") || "[]");
-    h.unshift({msg, reply, images, videos});
-    if (h.length > 30) h.pop();
-    localStorage.setItem("chat_history", JSON.stringify(h));
-    loadHistory();
+function appendBot(msg) {
+    el("chat").innerHTML += `<div class="bubble-bot">🤖 ${msg}</div>`;
+    el("chat").scrollTop = el("chat").scrollHeight;
 }
 
-// ================== CHAT RENDERING ==================
-function appendUser(text) {
-    const div = document.createElement("div");
-    div.className = "msg-user";
-    div.textContent = text;
-    chat.appendChild(div);
-    chat.scrollTop = chat.scrollHeight;
-}
+function sendMessage() {
+    const msg = el("message").value.trim();
+    if (!msg) return;
 
-function appendBot(text, images = [], videos = []) {
-    lastBotMessage = text;
-    lastImages = images;
-    lastVideos = videos;
-
-    // Text
-    if (text.trim()) {
-        const divText = document.createElement("div");
-        divText.className = "msg-bot";
-        divText.innerHTML = text.replace(/\n/g, "<br>");
-        chat.appendChild(divText);
-    }
-
-    // Images
-    images.forEach(url => {
-        const div = document.createElement("div");
-        div.className = "msg-bot";
-        const img = document.createElement("img");
-        img.src = url;
-        img.style.maxWidth = "100%";
-        img.style.borderRadius = "6px";
-        div.appendChild(img);
-        chat.appendChild(div);
-    });
-
-    // Videos
-    videos.forEach(url => {
-        const div = document.createElement("div");
-        div.className = "msg-bot";
-        const a = document.createElement("a");
-        a.href = url;
-        a.target = "_blank";
-        a.textContent = "🎬 Video minh họa";
-        div.appendChild(a);
-        chat.appendChild(div);
-    });
-
-    chat.scrollTop = chat.scrollHeight;
-    generateSuggestions();
-}
-
-// ================== TYPING ==================
-function typing() {
-    const t = document.createElement("div");
-    t.id = "typing";
-    t.className = "msg-bot typing";
-    t.textContent = "⏳ Đang tìm thông tin...";
-    chat.appendChild(t);
-    chat.scrollTop = chat.scrollHeight;
-}
-
-function stopTyping() {
-    const t = el("typing");
-    if(t) t.remove();
-}
-
-// ================== SUGGESTED QUESTIONS ==================
-function generateSuggestions() {
-    suggestedBox.innerHTML = "";
-
-    const ideas = [
-        "Chi phí dự kiến?",
-        "Lịch trình 3 ngày tối ưu?",
-        "Thời tiết tháng này thế nào?",
-        "Món ăn nổi bật ở đây?",
-        "Nên ở khu vực nào?"
-    ];
-
-    ideas.forEach(q => {
-        const b = document.createElement("button");
-        b.className = "suggestion-btn";
-        b.textContent = q;
-        b.onclick = () => { el("msg").value = q; sendMsg(); };
-        suggestedBox.appendChild(b);
-    });
-
-    // Nút xuất PDF
-    const pdfBtn = document.createElement("button");
-    pdfBtn.className = "suggestion-btn";
-    pdfBtn.textContent = "⬇ Xuất PDF";
-    pdfBtn.style.background = "#0b7a3b";
-    pdfBtn.style.color = "white";
-    pdfBtn.onclick = exportPDF;
-    suggestedBox.appendChild(pdfBtn);
-}
-
-// ================== SEND MESSAGE ==================
-function sendMsg() {
-    const text = el("msg").value.trim();
-    if(!text) return;
-
-    appendUser(text);
-    el("msg").value = "";
-    typing();
+    appendUser(msg);
+    el("message").value = "";
 
     fetch("/chat", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({message:text})
+        body: JSON.stringify({msg})
     })
     .then(r => r.json())
     .then(d => {
-        stopTyping();
-        appendBot(d.reply, d.images, d.videos);
-        saveHistory(text, d.reply, d.images, d.videos);
-    })
-    .catch(() => {
-        stopTyping();
-        appendBot("❗ Lỗi kết nối server.");
-        saveHistory(text, "❗ Lỗi kết nối server.", [], []);
+        appendBot(d.reply);
+
+        // lưu lịch sử
+        const h = JSON.parse(localStorage.getItem("chat_history") || "[]");
+        h.push({msg, reply: d.reply});
+        localStorage.setItem("chat_history", JSON.stringify(h));
+
+        // render suggested
+        el("suggested").innerHTML = "";
+        (d.suggested || []).forEach(s => {
+            let b = document.createElement("div");
+            b.className = "suggested-item";
+            b.innerText = s;
+            b.onclick = () => { el("message").value = s; sendMessage(); };
+            el("suggested").appendChild(b);
+        });
     });
 }
 
-// ================== EXPORT PDF ==================
 function exportPDF() {
-    if(!lastBotMessage) {
-        alert("Chưa có nội dung để xuất PDF!");
+    const h = JSON.parse(localStorage.getItem("chat_history") || "[]");
+
+    if (!h.length) {
+        alert("Không có lịch sử để xuất PDF!");
         return;
     }
 
     fetch("/export-pdf", {
         method: "POST",
         headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({content: lastBotMessage, images:lastImages, videos:lastVideos})
+        body: JSON.stringify({history: h})
     })
-    .then(response => response.blob())
-    .then(blob => {
-        const url = window.URL.createObjectURL(blob);
+    .then(r => r.blob())
+    .then(b => {
+        const url = URL.createObjectURL(b);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "Lich_trinh_du_lich.pdf";
+        a.download = "TravelChat.pdf";
         a.click();
-        window.URL.revokeObjectURL(url);
+        URL.revokeObjectURL(url);
     });
 }
 
-// ================== TRAVEL SEARCH ==================
-function travelSearch() {
-    const city = el("city").value || "";
-    const budget = el("budget").value || "";
-    const season = el("season").value || "";
-    const q = `Du lịch ${city} ngân sách ${budget} mùa ${season}`;
-    el("msg").value = q;
-    sendMsg();
+function showHistory() {
+    const h = JSON.parse(localStorage.getItem("chat_history") || "[]");
+    el("historyContent").innerHTML = "";
+
+    h.forEach(i => {
+        el("historyContent").innerHTML +=
+           `<div><b>🧑‍💬 ${i.msg}</b><br>${i.reply}<hr></div>`;
+    });
+
+    el("historyModal").style.display = "block";
 }
 
-// ================== CLEAR CHAT ==================
-function clearChat() {
-    chat.innerHTML = "";
+function closeHistory() {
+    el("historyModal").style.display = "none";
 }
-
-// ================== INIT ==================
-loadHistory();
