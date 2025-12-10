@@ -52,22 +52,24 @@ def home():
 
 <style>
 body {{ margin:0; font-family: Arial, Helvetica, sans-serif; background:#e0f7fa; }}
-header {{ background:#0277bd; color:white; padding:15px 20px; display:flex; align-items:center; flex-wrap:wrap; }}
+header {{ background:#0b7a3b; color:white; padding:15px 20px; display:flex; align-items:center; justify-content:flex-start; flex-wrap:wrap; }}
 header img {{ max-height:100px; width:auto; margin-right:20px; border-radius:8px; object-fit:contain; }}
 main {{ max-width:1000px; margin:auto; padding:20px; }}
 .chat-box {{ background:white; border-radius:8px; padding:15px; height:500px; max-height:70vh; overflow-y:auto; border:1px solid #ddd; line-height:1.6; font-size:14px; }}
-.user {{ text-align:right; color:#0277bd; margin:8px 0; }}
+.user {{ text-align:right; color:#0b7a3b; margin:8px 0; }}
 .bot {{ text-align:left; color:#333; margin:8px 0; }}
 .typing {{ color:#999; font-style:italic; }}
 .input-area {{ display:flex; gap:10px; margin-top:12px; }}
 input {{ flex:1; padding:12px; font-size:16px; }}
-button {{ padding:12px 16px; border:none; cursor:pointer; background:#0277bd; color:white; }}
+button {{ padding:12px 16px; border:none; cursor:pointer; background:#0b7a3b; color:white; }}
 .secondary {{ background:#999; }}
 .search-box {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-bottom:15px; }}
-footer {{ margin-top:30px; padding:15px; background:#b3e5fc; font-size:14px; text-align:center; }}
-a {{ color:#0277bd; text-decoration:none; }}
+footer {{ margin-top:30px; padding:15px; background:#eee; font-size:14px; text-align:center; }}
+a {{ color:#0b7a3b; text-decoration:none; }}
 a:hover {{ text-decoration:underline; }}
 img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
+
+
 
 .modal {{
     display:none;
@@ -115,8 +117,8 @@ img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
 <main>
 <h3>Google Travel-style Search</h3>
 <div class="search-box">
-    <input id="city" placeholder="Thành phố (Đà Lạt, Phú Quốc…)">
-    <input id="budget" placeholder="Ngân sách (VD: 10 triệu)">
+    <input id="city" placeholder="Thành phố (Hà Nội, Đà Nẵng, Đà Lạt, Phú Quốc…)">
+    <input id="budget" placeholder="Ngân sách (VD: , 20 triệu, 10 triệu...)">
     <input id="season" placeholder="Mùa (hè, đông…)">
     <button onclick="travelSearch()">Tìm kiếm</button>
 </div>
@@ -145,9 +147,7 @@ img {{ max-width:100%; border-radius:6px; margin:5px 0; }}
 © 2025 – <strong>__BUILDER__</strong> | Hotline: <strong>__HOTLINE__</strong>
 </footer>
 
-<script>
-/* JS giữ nguyên như anh gửi – em không cắt dòng để anh dễ đọc */
-</script>
+<script src="/static/chat.js"></script>
 
 </body>
 </html>
@@ -169,50 +169,65 @@ def chat_api():
     if not msg:
         return jsonify({"reply": "Vui lòng nhập nội dung."})
 
+    # --- AI TEXT RESPONSE ---
+    
     prompt = (
-        "Bạn là chuyên gia du lịch Việt Nam. Trả lời chi tiết, rõ ràng:\n"
-        "- Lịch trình theo ngày\n- Chi phí\n- Gợi ý hình ảnh\n- Gợi ý video"
+        "Bạn là chuyên gia du lịch Việt Nam và thế giới. Trả lời **text chuẩn**, phân chia khoa học:\n"
+        "- Tiêu đề rõ ràng: Thời gian, Lịch trình, Chi phí, Hình ảnh & Video\n"
+        "- Mỗi ngày: liệt kê chi tiết bullet points\n"
+        "- KHÔNG dùng HTML, KHÔNG iframe, không tự tạo link hình/video\n"
+        "- Dễ đọc, chuyên nghiệp, ví dụ:\n"
+        "Ngày 1: ...\n- Hình ảnh minh họa: Đà Lạt Hồ Xuân Hương\n- Video tham khảo: Đà Lạt"
     )
 
-    try:
+    payload = {
+        "model": "gpt-4o-mini",
+        "messages": [
+            {"role":"system","content": prompt},
+            {"role":"user","content": msg}
+        ],
+        "temperature":0.6
+    }
+
+   try:
         r = requests.post(
             "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
-            json={
-                "model": "gpt-4o-mini",
-                "messages": [
-                    {"role": "system", "content": prompt},
-                    {"role": "user", "content": msg}
-                ]
+            headers={
+                "Authorization": f"Bearer {OPENAI_API_KEY}",
+                "Content-Type":"application/json"
             },
+            json=payload,
             timeout=60
         )
-
         ai_text = r.json()["choices"][0]["message"]["content"]
 
+        # --- Extract keywords for images/videos (simple: lines with "Hình ảnh"/"Video") ---
         image_queries = []
         video_queries = []
-
         for line in ai_text.splitlines():
-            if "- Hình ảnh minh họa:" in line:
-                image_queries.append(line.split(":", 1)[1].strip())
-            if "- Video tham khảo:" in line:
-                video_queries.append(line.split(":", 1)[1].strip())
+            if line.strip().startswith("- Hình ảnh minh họa:"):
+                q = line.replace("- Hình ảnh minh họa:", "").strip()
+                if q: image_queries.append(q)
+            if line.strip().startswith("- Video tham khảo:"):
+                q = line.replace("- Video tham khảo:", "").strip()
+                if q: video_queries.append(q)
 
+        # --- Search real images & videos via SerpAPI ---
         images = []
         for q in image_queries:
-            images.extend(google_image_search(q, 1))
+            imgs = google_image_search(q, num=1)
+            images.extend(imgs)
 
         videos = []
         for q in video_queries:
-            videos.extend(youtube_search(q, 1))
+            vids = youtube_search(q, num=1)
+            videos.extend(vids)
 
         return jsonify({"reply": ai_text, "images": images, "videos": videos})
 
     except Exception as e:
-        print("ERROR CHAT:", e)
-        return jsonify({"reply": "Hệ thống đang bận, thử lại sau.", "images": [], "videos": []})
-
+        print(e)
+        return jsonify({"reply":"Hệ thống đang bận, thử lại sau.", "images":[], "videos":[]})
 
 # ========= EXPORT PDF =========
 @app.route("/export-pdf", methods=["POST"])
