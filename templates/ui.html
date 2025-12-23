@@ -6,18 +6,10 @@
 <title>Vietnam Travel AI</title>
 
 <style>
-:root{
-    --bg:#f7f7f8;
-    --user:#d2f4ea;
-    --bot:#ffffff;
-    --primary:#0a7cff;
-}
-
-*{box-sizing:border-box}
 body{
     margin:0;
     font-family: system-ui, -apple-system, BlinkMacSystemFont;
-    background:var(--bg);
+    background:#f5f6f8;
     display:flex;
     flex-direction:column;
     height:100vh;
@@ -33,17 +25,17 @@ header{
 }
 
 header img{
-    height:48px;
-    max-width:180px;
+    height:56px;           /* LOGO TO HƠN */
+    max-width:220px;
     object-fit:contain;
 }
 
 header .title{
-    font-weight:600;
     font-size:16px;
+    font-weight:600;
 }
 
-#chat{
+#chat-box{
     flex:1;
     overflow-y:auto;
     padding:16px;
@@ -56,48 +48,49 @@ header .title{
     max-width:85%;
     padding:12px 14px;
     border-radius:14px;
-    line-height:1.5;
     white-space:pre-wrap;
     word-break:break-word;
+    line-height:1.5;
 }
 
-.user{
+.msg.user{
     align-self:flex-end;
-    background:var(--user);
+    background:#d1f0e8;
     border-bottom-right-radius:4px;
 }
 
-.bot{
+.msg.bot{
     align-self:flex-start;
-    background:var(--bot);
+    background:#fff;
     border:1px solid #ddd;
     border-bottom-left-radius:4px;
 }
 
 .media{
-    display:flex;
-    gap:8px;
-    flex-wrap:wrap;
     margin-top:6px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
 }
 
-.media img, .media iframe{
+.media img,
+.media iframe{
     max-width:160px;
     border-radius:8px;
 }
 
 .suggestions{
+    margin-top:8px;
     display:flex;
     flex-wrap:wrap;
     gap:8px;
-    margin-top:8px;
 }
 
 .suggestions button{
     background:#eef2ff;
     border:1px solid #c7d2fe;
-    border-radius:999px;
     padding:6px 12px;
+    border-radius:999px;
     cursor:pointer;
     font-size:14px;
 }
@@ -122,19 +115,18 @@ textarea{
     font-size:15px;
 }
 
-button.send{
-    background:var(--primary);
+button{
+    background:#0a7cff;
     color:#fff;
     border:none;
-    padding:0 18px;
+    padding:0 16px;
     border-radius:10px;
-    font-size:15px;
     cursor:pointer;
 }
 
 @media(max-width:600px){
-    header img{height:40px}
     .msg{max-width:95%}
+    header img{height:44px}
 }
 </style>
 </head>
@@ -146,51 +138,54 @@ button.send{
     <div class="title">Vietnam Travel AI</div>
 </header>
 
-<div id="chat"></div>
+<div id="chat-box"></div>
 
 <footer>
     <div class="input-wrap">
-        <textarea id="input" rows="1" placeholder="Hỏi về du lịch Việt Nam..."></textarea>
-        <button class="send" onclick="send()">Gửi</button>
+        <textarea id="msg" rows="1" placeholder="Hỏi về du lịch Việt Nam..."></textarea>
+        <button onclick="send()">Gửi</button>
     </div>
 </footer>
 
 <script>
-const chat = document.getElementById("chat");
-const input = document.getElementById("input");
+const chatBox = document.getElementById("chat-box");
+const msgInput = document.getElementById("msg");
 
-function addMsg(text, cls){
-    const d=document.createElement("div");
-    d.className="msg "+cls;
-    d.textContent=text;
-    chat.appendChild(d);
-    chat.scrollTop=chat.scrollHeight;
-    return d;
+function addMessage(text, role){
+    const div = document.createElement("div");
+    div.className = "msg " + role;
+    div.textContent = text;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    return div;
 }
 
 function addMedia(parent, images, videos){
-    if((images && images.length)||(videos && videos.length)){
-        const m=document.createElement("div");
-        m.className="media";
+    if((images && images.length) || (videos && videos.length)){
+        const m = document.createElement("div");
+        m.className = "media";
+
         images?.forEach(i=>{
             const img=document.createElement("img");
             img.src=i.url;
-            img.alt=i.caption||"";
             m.appendChild(img);
         });
+
         videos?.forEach(v=>{
-            const f=document.createElement("iframe");
-            f.src=v.replace("watch?v=","embed/");
-            f.width=160; f.height=90;
-            f.allow="accelerometer; autoplay; encrypted-media";
-            m.appendChild(f);
+            const iframe=document.createElement("iframe");
+            iframe.src=v.replace("watch?v=","embed/");
+            iframe.width=160;
+            iframe.height=90;
+            iframe.allow="accelerometer; autoplay; encrypted-media";
+            m.appendChild(iframe);
         });
+
         parent.appendChild(m);
     }
 }
 
 function addSuggestions(list){
-    if(!list||!list.length)return;
+    if(!list || !list.length) return;
     const s=document.createElement("div");
     s.className="suggestions";
     list.forEach(q=>{
@@ -199,29 +194,30 @@ function addSuggestions(list){
         b.onclick=()=>send(q);
         s.appendChild(b);
     });
-    chat.appendChild(s);
+    chatBox.appendChild(s);
 }
 
 async function send(text){
-    const msg=text||input.value.trim();
-    if(!msg)return;
-    input.value="";
-    addMsg(msg,"user");
+    const content = text || msgInput.value.trim();
+    if(!content) return;
 
-    const r=await fetch("/chat",{
+    msgInput.value="";
+    addMessage(content,"user");
+
+    const r = await fetch("/chat",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({msg})
+        body:JSON.stringify({msg:content})
     });
-    const data=await r.json();
+    const data = await r.json();
 
-    const bot=addMsg(data.reply,"bot");
-    addMedia(bot,data.images,data.videos);
+    const bot = addMessage(data.reply,"bot");
+    addMedia(bot, data.images, data.videos);
     addSuggestions(data.suggestions);
 }
 
-input.addEventListener("keydown",e=>{
-    if(e.key==="Enter"&&!e.shiftKey){
+msgInput.addEventListener("keydown",e=>{
+    if(e.key==="Enter" && !e.shiftKey){
         e.preventDefault();
         send();
     }
