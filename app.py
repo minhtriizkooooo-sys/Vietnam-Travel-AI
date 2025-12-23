@@ -11,10 +11,13 @@ from flask import (
 from flask_cors import CORS
 
 # PDF (Unicode)
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+)
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
+from reportlab.lib import colors
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
@@ -38,6 +41,7 @@ def get_db():
 def init_db():
     db = get_db()
     cur = db.cursor()
+
     cur.execute("""
         CREATE TABLE IF NOT EXISTS sessions (
             id TEXT PRIMARY KEY,
@@ -53,6 +57,17 @@ def init_db():
             created_at TEXT
         )
     """)
+
+    # ===== ADD: lưu suggested questions =====
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS suggestions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT,
+            question TEXT,
+            created_at TEXT
+        )
+    """)
+
     db.commit()
     db.close()
 
@@ -89,6 +104,25 @@ def fetch_history(sid):
     ).fetchall()
     db.close()
     return [dict(r) for r in rows]
+
+def save_suggestions(sid, questions):
+    db = get_db()
+    for q in questions:
+        db.execute(
+            "INSERT INTO suggestions (session_id, question, created_at) VALUES (?,?,?)",
+            (sid, q, datetime.utcnow().isoformat())
+        )
+    db.commit()
+    db.close()
+
+def fetch_suggestions(sid):
+    db = get_db()
+    rows = db.execute(
+        "SELECT question FROM suggestions WHERE session_id=?",
+        (sid,)
+    ).fetchall()
+    db.close()
+    return [r["question"] for r in rows]
 
 # ---------------- OPENAI ----------------
 SYSTEM_PROMPT = """
@@ -127,6 +161,33 @@ def call_openai(user_msg):
     )
     r.raise_for_status()
     return r.json()["choices"][0]["message"]["content"]
+
+# ===== ADD: sinh câu hỏi gợi ý =====
+def generate_suggestions(question, answer):
+    prompt = f"""
+Dựa trên câu hỏi và câu trả lời sau, hãy gợi ý 3 câu hỏi tiếp theo tự nhiên cho người dùng.
+Chỉ liệt kê danh sách, không giải thích.
+
+Câu hỏi: {question}
+Trả lời: {answer}
+"""
+    r = requests.post(
+        "https://api.openai.com/v1/chat/completions",
+        headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
+        json={
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": "Bạn là trợ lý gợi ý câu hỏi."},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.5,
+            "max_tokens": 200
+        },
+        timeout=60
+    )
+    r.raise_for_status()
+    text = r.json()["choices"][0]["message"]["content"]
+    return [x.strip("- ").strip() for x in text.splitlines() if x.strip()]
 
 # ---------------- SERPAPI ----------------
 def search_images(query):
@@ -190,6 +251,7 @@ def chat():
         return jsonify({"error": "empty"}), 400
 
     save_message(sid, "user", msg)
+
     try:
         reply = call_openai(msg)
     except Exception:
@@ -197,10 +259,15 @@ def chat():
 
     save_message(sid, "bot", reply)
 
+    # ===== ADD: suggested questions =====
+    suggestions = generate_suggestions(msg, reply)
+    save_suggestions(sid, suggestions)
+
     return jsonify({
         "reply": reply,
         "images": search_images(msg),
-        "videos": search_youtube(msg)
+        "videos": search_youtube(msg),
+        "suggestions": suggestions
     })
 
 @app.route("/history")
@@ -208,46 +275,62 @@ def history():
     sid = request.cookies.get("session_id")
     return jsonify({"history": fetch_history(sid) if sid else []})
 
-# ---------------- EXPORT PDF (FIX TIẾNG VIỆT) ----------------
+# ---------------- EXPORT PDF (IMPROVED) ----------------
 @app.route("/export-pdf", methods=["POST"])
 def export_pdf():
     sid = request.cookies.get("session_id")
     history = fetch_history(sid)
+    suggestions = fetch_suggestions(sid)
+
     if not history:
         return jsonify({"error": "No data"}), 400
 
     buffer = io.BytesIO()
 
-    # Đăng ký font Unicode tiếng Việt
     font_path = os.path.join(app.static_folder, "DejaVuSans.ttf")
     pdfmetrics.registerFont(TTFont("DejaVu", font_path))
 
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(
-        name="VN",
-        fontName="DejaVu",
-        fontSize=11,
-        leading=14
-    ))
+    styles.add(ParagraphStyle("VN", fontName="DejaVu", fontSize=11, leading=14))
+    styles.add(ParagraphStyle("SUG", fontName="DejaVu", fontSize=10, italic=True))
 
     doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        leftMargin=2*cm,
-        rightMargin=2*cm,
-        topMargin=2*cm,
-        bottomMargin=2*cm
+        buffer, pagesize=A4,
+        leftMargin=2*cm, rightMargin=2*cm,
+        topMargin=2*cm, bottomMargin=2*cm
     )
 
     story = [
-        Paragraph("<b>Lịch sử chat – Vietnam Travel AI</b>", styles["VN"]),
+        Paragraph("<b>LỊCH SỬ HỘI THOẠI</b>", styles["VN"]),
         Spacer(1, 12)
     ]
 
     for h in history:
-        text = f"[{h['role'].upper()}] {h['created_at']}<br/>{h['content']}"
-        story.append(Paragraph(text, styles["VN"]))
-        story.append(Spacer(1, 10))
+        bg = colors.lightblue if h["role"] == "user" else colors.whitesmoke
+        label = "NGƯỜI DÙNG" if h["role"] == "user" else "TRỢ LÝ"
+
+        table = Table(
+            [[label, h["content"]]],
+            colWidths=[3*cm, 12*cm]
+        )
+        table.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,-1), bg),
+            ("FONT", (0,0), (-1,-1), "DejaVu"),
+            ("VALIGN", (0,0), (-1,-1), "TOP"),
+            ("LEFTPADDING", (0,0), (-1,-1), 6),
+            ("RIGHTPADDING", (0,0), (-1,-1), 6),
+            ("TOPPADDING", (0,0), (-1,-1), 6),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+        ]))
+
+        story.append(table)
+        story.append(Spacer(1, 8))
+
+    if suggestions:
+        story.append(Spacer(1, 12))
+        story.append(Paragraph("<b>GỢI Ý CÂU HỎI TIẾP THEO</b>", styles["VN"]))
+        for s in suggestions:
+            story.append(Paragraph(f"- {s}", styles["SUG"]))
 
     doc.build(story)
     buffer.seek(0)
