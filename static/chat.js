@@ -7,6 +7,35 @@ const btnExport = document.getElementById("btn-export");
 const btnClear = document.getElementById("btn-clear");
 const btnHistory = document.getElementById("btn-history");
 
+/* ---------------- MODAL IMAGE ---------------- */
+function openImageModal(src, caption) {
+  let modal = document.getElementById("img-modal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "img-modal";
+    modal.style.cssText = `
+      position:fixed; inset:0; background:rgba(0,0,0,.85);
+      display:flex; align-items:center; justify-content:center;
+      flex-direction:column; z-index:9999;
+    `;
+    modal.innerHTML = `
+      <span id="img-close" style="color:white;font-size:22px;cursor:pointer">✕</span>
+      <img id="img-modal-src" style="max-width:90%;max-height:80%;border-radius:8px">
+      <div id="img-modal-caption" style="color:white;margin-top:8px;font-size:14px"></div>
+    `;
+    document.body.appendChild(modal);
+
+    modal.querySelector("#img-close").onclick = () => {
+      modal.style.display = "none";
+    };
+  }
+
+  document.getElementById("img-modal-src").src = src;
+  document.getElementById("img-modal-caption").innerText = caption || "";
+  modal.style.display = "flex";
+}
+
+/* ---------------- HISTORY ---------------- */
 async function getHistory() {
   try {
     const r = await fetch("/history");
@@ -20,32 +49,52 @@ async function getHistory() {
 function appendBubble(role, text) {
   const b = document.createElement("div");
   b.className = "bubble " + (role === "user" ? "user" : "bot");
-  // allow simple line breaks
   b.innerText = text;
   messagesEl.appendChild(b);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
+/* ---------------- IMAGES (ĐÃ SỬA) ---------------- */
 function renderImages(images) {
   if (!images || !images.length) return;
+
   const row = document.createElement("div");
   row.className = "img-row";
-  images.slice(0,6).forEach(src => {
+
+  images.slice(0, 6).forEach(imgObj => {
+    // tương thích: nếu backend cũ chỉ trả string
+    const src = typeof imgObj === "string" ? imgObj : imgObj.url;
+    const caption = typeof imgObj === "string" ? "" : imgObj.caption;
+
+    const wrap = document.createElement("div");
+    wrap.style.maxWidth = "140px";
+
     const img = document.createElement("img");
     img.src = src;
-    row.appendChild(img);
+    img.style.cssText = "width:140px;height:90px;object-fit:cover;border-radius:8px;cursor:pointer";
+    img.onclick = () => openImageModal(src, caption);
+
+    const note = document.createElement("div");
+    note.innerText = caption || "";
+    note.style.cssText = "font-size:12px;color:#555;margin-top:4px";
+
+    wrap.appendChild(img);
+    if (caption) wrap.appendChild(note);
+    row.appendChild(wrap);
   });
+
   messagesEl.appendChild(row);
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
+/* ---------------- VIDEOS ---------------- */
 function renderVideos(videos) {
   if (!videos || !videos.length) return;
-  videos.slice(0,4).forEach(link => {
+  videos.slice(0, 4).forEach(link => {
     const a = document.createElement("a");
     a.href = link;
     a.target = "_blank";
-    a.innerText = "▶ Xem video tham khảo";
+    a.innerText = "▶ Xem video YouTube";
     a.style.display = "block";
     a.style.marginTop = "6px";
     messagesEl.appendChild(a);
@@ -53,6 +102,7 @@ function renderVideos(videos) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
+/* ---------------- SUGGESTIONS ---------------- */
 function renderSuggestions(list) {
   suggestionsEl.innerHTML = "";
   if (!list || !list.length) return;
@@ -67,12 +117,14 @@ function renderSuggestions(list) {
   });
 }
 
+/* ---------------- SEND MESSAGE ---------------- */
 async function sendMsg() {
   const text = msgInput.value.trim();
   if (!text) return;
+
   appendBubble("user", text);
   msgInput.value = "";
-  // show interim
+
   appendBubble("bot", "Đang xử lý...");
   const placeholder = messagesEl.lastChild;
 
@@ -83,12 +135,14 @@ async function sendMsg() {
       body: JSON.stringify({msg: text})
     });
     const j = await r.json();
-    // replace placeholder
+
     placeholder.remove();
     appendBubble("bot", j.reply || "Không có phản hồi.");
+
     if (j.images && j.images.length) renderImages(j.images);
     if (j.videos && j.videos.length) renderVideos(j.videos);
     if (j.suggested) renderSuggestions(j.suggested);
+
   } catch (e) {
     placeholder.remove();
     appendBubble("bot", "Lỗi hệ thống. Thử lại.");
@@ -96,7 +150,9 @@ async function sendMsg() {
   }
 }
 
+/* ---------------- EVENTS ---------------- */
 sendBtn.onclick = sendMsg;
+
 msgInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
@@ -104,7 +160,7 @@ msgInput.addEventListener("keydown", (e) => {
   }
 });
 
-// load history on start
+/* ---------------- INIT HISTORY ---------------- */
 (async function init() {
   const hist = await getHistory();
   messagesEl.innerHTML = "";
@@ -113,12 +169,12 @@ msgInput.addEventListener("keydown", (e) => {
   });
 })();
 
-// Export PDF (session-based)
+/* ---------------- EXPORT PDF ---------------- */
 btnExport.onclick = async () => {
   try {
     const resp = await fetch("/export-pdf", {method: "POST"});
     if (!resp.ok) {
-      alert("Không thể xuất PDF: " + (await resp.text()));
+      alert("Không thể xuất PDF");
       return;
     }
     const blob = await resp.blob();
@@ -129,12 +185,11 @@ btnExport.onclick = async () => {
     a.click();
     URL.revokeObjectURL(url);
   } catch (e) {
-    alert("Lỗi xuất PDF");
     console.error(e);
   }
 };
 
-// Clear history for this session
+/* ---------------- CLEAR HISTORY ---------------- */
 btnClear.onclick = async () => {
   if (!confirm("Xóa toàn bộ lịch sử chat cho phiên này?")) return;
   try {
@@ -146,7 +201,7 @@ btnClear.onclick = async () => {
   }
 };
 
-// Show history modal (simple alert listing)
+/* ---------------- VIEW HISTORY ---------------- */
 btnHistory.onclick = async () => {
   const hist = await getHistory();
   if (!hist.length) {
@@ -157,7 +212,6 @@ btnHistory.onclick = async () => {
   hist.forEach(h => {
     s += `[${h.role}] ${h.content}\n\n`;
   });
-  // For long history maybe better open new window or download; for now use prompt
   const w = window.open("", "_blank");
   w.document.write("<pre>" + s.replace(/</g, "&lt;") + "</pre>");
 };
