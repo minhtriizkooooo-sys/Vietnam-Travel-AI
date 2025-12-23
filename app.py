@@ -163,7 +163,7 @@ def index():
     if not sid:
         sid = ensure_session()
         resp = make_response(render_template("ui.html", HOTLINE=os.getenv("HOTLINE", "+84-908-08-3566"),
-                                             BUILDER=os.getenv("BUILDER_NAME", "Vietnam Travel AI – Minh Trí")))
+                                             BUILDER=os.getenv("BUILDER_NAME", "Vietnam Travel AI – Lại Nguyễn Minh Trí")))
         resp.set_cookie("session_id", sid, httponly=True, samesite="Lax")
         return resp
     return render_template("ui.html", HOTLINE=os.getenv("HOTLINE", "+84-908-08-3566"),
