@@ -1,192 +1,232 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Vietnam Travel AI</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vietnam Travel AI</title>
 
-  <style>
-    :root{
-      --bg:#f7f7f8;
-      --card:#ffffff;
-      --accent:#0c7d42;
-      --muted:#6b7280;
-    }
+<style>
+:root{
+    --bg:#f7f7f8;
+    --user:#d2f4ea;
+    --bot:#ffffff;
+    --primary:#0a7cff;
+}
 
-    html,body{
-      height:100%;
-      margin:0;
-      font-family:Inter,"Segoe UI",Arial,sans-serif;
-      background:var(--bg);
-    }
+*{box-sizing:border-box}
+body{
+    margin:0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont;
+    background:var(--bg);
+    display:flex;
+    flex-direction:column;
+    height:100vh;
+}
 
-    .app{
-      max-width:900px;
-      margin:18px auto;
-      padding:12px;
-    }
+header{
+    background:#fff;
+    border-bottom:1px solid #ddd;
+    padding:10px 16px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
 
-    header{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      background:var(--card);
-      padding:12px;
-      border-radius:8px;
-    }
+header img{
+    height:48px;
+    max-width:180px;
+    object-fit:contain;
+}
 
-    header img{height:48px}
-    header h1{margin:0;font-size:18px}
+header .title{
+    font-weight:600;
+    font-size:16px;
+}
 
-    .toolbar-btn{
-      padding:8px 10px;
-      border-radius:8px;
-      border:1px solid #ddd;
-      background:white;
-      cursor:pointer;
-    }
+#chat{
+    flex:1;
+    overflow-y:auto;
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+}
 
-    .chat-shell{
-      display:flex;
-      flex-direction:column;
-      background:var(--card);
-      margin-top:12px;
-      border-radius:12px;
-      overflow:hidden;
-      height:72vh;
-      border:1px solid #e5e7eb;
-    }
+.msg{
+    max-width:85%;
+    padding:12px 14px;
+    border-radius:14px;
+    line-height:1.5;
+    white-space:pre-wrap;
+    word-break:break-word;
+}
 
-    .messages{
-      flex:1;
-      padding:18px;
-      overflow:auto;
-      background:linear-gradient(180deg,#f8fffb,white);
-    }
+.user{
+    align-self:flex-end;
+    background:var(--user);
+    border-bottom-right-radius:4px;
+}
 
-    .bubble{
-      max-width:75%;
-      padding:10px 12px;
-      border-radius:12px;
-      margin:8px 0;
-      white-space:pre-wrap;
-      line-height:1.4;
-    }
+.bot{
+    align-self:flex-start;
+    background:var(--bot);
+    border:1px solid #ddd;
+    border-bottom-left-radius:4px;
+}
 
-    .bubble.user{
-      margin-left:auto;
-      background:var(--accent);
-      color:white;
-    }
+.media{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-top:6px;
+}
 
-    .bubble.bot{
-      background:#f3f4f6;
-      color:#111;
-    }
+.media img, .media iframe{
+    max-width:160px;
+    border-radius:8px;
+}
 
-    .img-row{
-      display:flex;
-      gap:8px;
-      margin-top:8px;
-      flex-wrap:wrap;
-    }
+.suggestions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:8px;
+}
 
-    .img-row img{
-      width:140px;
-      height:90px;
-      object-fit:cover;
-      border-radius:8px;
-    }
+.suggestions button{
+    background:#eef2ff;
+    border:1px solid #c7d2fe;
+    border-radius:999px;
+    padding:6px 12px;
+    cursor:pointer;
+    font-size:14px;
+}
 
-    .suggestions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:8px;
-    }
+footer{
+    background:#fff;
+    border-top:1px solid #ddd;
+    padding:10px;
+}
 
-    .suggestions button{
-      background:white;
-      border:1px solid #ddd;
-      padding:8px 10px;
-      border-radius:10px;
-      cursor:pointer;
-    }
+.input-wrap{
+    display:flex;
+    gap:8px;
+}
 
-    .input-row{
-      display:flex;
-      padding:12px;
-      border-top:1px solid #eee;
-      gap:8px;
-    }
+textarea{
+    flex:1;
+    resize:none;
+    padding:10px;
+    border-radius:10px;
+    border:1px solid #ccc;
+    font-size:15px;
+}
 
-    .input-row textarea{
-      flex:1;
-      padding:12px;
-      border-radius:10px;
-      border:1px solid #ddd;
-      resize:none;
-      font-family:inherit;
-      font-size:14px;
-    }
+button.send{
+    background:var(--primary);
+    color:#fff;
+    border:none;
+    padding:0 18px;
+    border-radius:10px;
+    font-size:15px;
+    cursor:pointer;
+}
 
-    .input-row button{
-      background:var(--accent);
-      color:white;
-      border:none;
-      padding:10px 14px;
-      border-radius:10px;
-      cursor:pointer;
-    }
-
-    footer{
-      margin-top:14px;
-      text-align:center;
-      color:var(--muted);
-      font-size:13px;
-    }
-  </style>
+@media(max-width:600px){
+    header img{height:40px}
+    .msg{max-width:95%}
+}
+</style>
 </head>
 
 <body>
-<div class="app">
 
-  <header>
-    <img src="/static/Logo_Marie_Curie.png" alt="Logo">
-    <div>
-      <h1>Vietnam Travel AI</h1>
-      <div style="font-size:13px;color:var(--muted)"></div>
+<header>
+    <img src="/static/logo.png" alt="Logo">
+    <div class="title">Vietnam Travel AI</div>
+</header>
+
+<div id="chat"></div>
+
+<footer>
+    <div class="input-wrap">
+        <textarea id="input" rows="1" placeholder="Hỏi về du lịch Việt Nam..."></textarea>
+        <button class="send" onclick="send()">Gửi</button>
     </div>
-    <div style="margin-left:auto;display:flex;gap:8px">
-      <button id="btn-history" class="toolbar-btn">Lịch sử</button>
-      <button id="btn-export" class="toolbar-btn">Xuất PDF</button>
-      <button id="btn-clear" class="toolbar-btn">Xóa lịch sử</button>
-    </div>
-  </header>
+</footer>
 
-  <div class="chat-shell">
-    <div id="messages" class="messages"></div>
+<script>
+const chat = document.getElementById("chat");
+const input = document.getElementById("input");
 
-    <div style="padding:12px">
-      <div id="suggestions" class="suggestions"></div>
-    </div>
+function addMsg(text, cls){
+    const d=document.createElement("div");
+    d.className="msg "+cls;
+    d.textContent=text;
+    chat.appendChild(d);
+    chat.scrollTop=chat.scrollHeight;
+    return d;
+}
 
-    <div class="input-row">
-      <textarea
-        id="msg"
-        rows="2"
-        placeholder="Hãy hỏi lịch trình, khách sạn, chi phí, mùa đẹp nhất..."
-      ></textarea>
-      <button id="send">Gửi</button>
-    </div>
-  </div>
+function addMedia(parent, images, videos){
+    if((images && images.length)||(videos && videos.length)){
+        const m=document.createElement("div");
+        m.className="media";
+        images?.forEach(i=>{
+            const img=document.createElement("img");
+            img.src=i.url;
+            img.alt=i.caption||"";
+            m.appendChild(img);
+        });
+        videos?.forEach(v=>{
+            const f=document.createElement("iframe");
+            f.src=v.replace("watch?v=","embed/");
+            f.width=160; f.height=90;
+            f.allow="accelerometer; autoplay; encrypted-media";
+            m.appendChild(f);
+        });
+        parent.appendChild(m);
+    }
+}
 
-  <footer>
-    Hotline: <strong>{{ HOTLINE }}</strong> — © 2025 – <strong>{{ BUILDER }}</strong>
-  </footer>
+function addSuggestions(list){
+    if(!list||!list.length)return;
+    const s=document.createElement("div");
+    s.className="suggestions";
+    list.forEach(q=>{
+        const b=document.createElement("button");
+        b.textContent=q;
+        b.onclick=()=>send(q);
+        s.appendChild(b);
+    });
+    chat.appendChild(s);
+}
 
-</div>
+async function send(text){
+    const msg=text||input.value.trim();
+    if(!msg)return;
+    input.value="";
+    addMsg(msg,"user");
 
-<script src="/static/chat.js"></script>
+    const r=await fetch("/chat",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({msg})
+    });
+    const data=await r.json();
+
+    const bot=addMsg(data.reply,"bot");
+    addMedia(bot,data.images,data.videos);
+    addSuggestions(data.suggestions);
+}
+
+input.addEventListener("keydown",e=>{
+    if(e.key==="Enter"&&!e.shiftKey){
+        e.preventDefault();
+        send();
+    }
+});
+</script>
+
 </body>
 </html>
