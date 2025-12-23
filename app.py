@@ -12,11 +12,11 @@ from flask_cors import CORS
 
 # PDF (Unicode)
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+from reportlab.pdfbase.ttfonts import TTFont
 
 # ---------------- CONFIG ----------------
 app = Flask(__name__, template_folder="templates", static_folder="static")
@@ -208,6 +208,7 @@ def history():
     sid = request.cookies.get("session_id")
     return jsonify({"history": fetch_history(sid) if sid else []})
 
+# ---------------- EXPORT PDF (FIX TIẾNG VIỆT) ----------------
 @app.route("/export-pdf", methods=["POST"])
 def export_pdf():
     sid = request.cookies.get("session_id")
@@ -216,24 +217,36 @@ def export_pdf():
         return jsonify({"error": "No data"}), 400
 
     buffer = io.BytesIO()
-    pdfmetrics.registerFont(UnicodeCIDFont("HeiseiMin-W3"))
+
+    # Đăng ký font Unicode tiếng Việt
+    font_path = os.path.join(app.static_folder, "DejaVuSans.ttf")
+    pdfmetrics.registerFont(TTFont("DejaVu", font_path))
 
     styles = getSampleStyleSheet()
-    styles["Normal"].fontName = "HeiseiMin-W3"
+    styles.add(ParagraphStyle(
+        name="VN",
+        fontName="DejaVu",
+        fontSize=11,
+        leading=14
+    ))
 
     doc = SimpleDocTemplate(
-        buffer, pagesize=A4,
-        leftMargin=2*cm, rightMargin=2*cm,
-        topMargin=2*cm, bottomMargin=2*cm
+        buffer,
+        pagesize=A4,
+        leftMargin=2*cm,
+        rightMargin=2*cm,
+        topMargin=2*cm,
+        bottomMargin=2*cm
     )
 
-    story = [Paragraph("<b>Lịch sử chat – Vietnam Travel AI</b>", styles["Normal"]), Spacer(1, 12)]
+    story = [
+        Paragraph("<b>Lịch sử chat – Vietnam Travel AI</b>", styles["VN"]),
+        Spacer(1, 12)
+    ]
 
     for h in history:
-        story.append(Paragraph(
-            f"[{h['role'].upper()}] {h['created_at']}<br/>{h['content']}",
-            styles["Normal"]
-        ))
+        text = f"[{h['role'].upper()}] {h['created_at']}<br/>{h['content']}"
+        story.append(Paragraph(text, styles["VN"]))
         story.append(Spacer(1, 10))
 
     doc.build(story)
