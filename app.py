@@ -57,8 +57,6 @@ def init_db():
             created_at TEXT
         )
     """)
-
-    # ===== ADD: lưu suggested questions =====
     cur.execute("""
         CREATE TABLE IF NOT EXISTS suggestions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,7 +65,6 @@ def init_db():
             created_at TEXT
         )
     """)
-
     db.commit()
     db.close()
 
@@ -130,7 +127,6 @@ Bạn là chuyên gia du lịch Việt Nam.
 
 QUY TẮC:
 - Nếu người dùng KHÔNG nêu địa điểm → mặc định tư vấn TP. Hồ Chí Minh, Việt Nam
-- Sau đó mới mở rộng sang khu vực khác nếu cần
 
 FORMAT:
 1) Thời gian lý tưởng
@@ -162,11 +158,11 @@ def call_openai(user_msg):
     r.raise_for_status()
     return r.json()["choices"][0]["message"]["content"]
 
-# ===== ADD: sinh câu hỏi gợi ý =====
+# ---------------- SUGGESTIONS ----------------
 def generate_suggestions(question, answer):
     prompt = f"""
-Dựa trên câu hỏi và câu trả lời sau, hãy gợi ý 3 câu hỏi tiếp theo tự nhiên cho người dùng.
-Chỉ liệt kê danh sách, không giải thích.
+Dựa trên câu hỏi và câu trả lời sau, hãy gợi ý 3 câu hỏi tiếp theo.
+Chỉ liệt kê danh sách.
 
 Câu hỏi: {question}
 Trả lời: {answer}
@@ -189,27 +185,27 @@ Trả lời: {answer}
     text = r.json()["choices"][0]["message"]["content"]
     return [x.strip("- ").strip() for x in text.splitlines() if x.strip()]
 
-# ---------------- SERPAPI ----------------
+# ---------------- SERPAPI (CONTEXT FIX) ----------------
 def search_images(query):
     if not SERPAPI_KEY:
         return []
     r = requests.get(
         "https://serpapi.com/search.json",
         params={
-            "q": f"{query} Ho Chi Minh City",
+            "q": query,
             "tbm": "isch",
             "num": 4,
             "api_key": SERPAPI_KEY
         },
         timeout=10
     )
-    imgs = []
-    for i in r.json().get("images_results", []):
-        imgs.append({
+    return [
+        {
             "url": i.get("original"),
-            "caption": i.get("title") or f"Hình ảnh {query} – TP.HCM"
-        })
-    return imgs
+            "caption": i.get("title")
+        }
+        for i in r.json().get("images_results", [])
+    ]
 
 def search_youtube(query):
     if not SERPAPI_KEY:
@@ -217,19 +213,18 @@ def search_youtube(query):
     r = requests.get(
         "https://serpapi.com/search.json",
         params={
-            "q": f"{query} site:youtube.com",
+            "q": query,
             "tbm": "vid",
             "num": 3,
             "api_key": SERPAPI_KEY
         },
         timeout=10
     )
-    vids = []
-    for v in r.json().get("video_results", []):
-        link = v.get("link", "")
-        if "youtube.com" in link or "youtu.be" in link:
-            vids.append(link)
-    return vids
+    return [
+        v.get("link")
+        for v in r.json().get("video_results", [])
+        if "youtube" in v.get("link", "")
+    ]
 
 # ---------------- ROUTES ----------------
 @app.route("/")
@@ -252,21 +247,19 @@ def chat():
 
     save_message(sid, "user", msg)
 
-    try:
-        reply = call_openai(msg)
-    except Exception:
-        reply = "Lỗi hệ thống. Vui lòng thử lại."
-
+    reply = call_openai(msg)
     save_message(sid, "bot", reply)
 
-    # ===== ADD: suggested questions =====
+    # 🔑 CONTEXT SEARCH FIX
+    context_query = f"{msg}. {reply.splitlines()[0]}"
+
     suggestions = generate_suggestions(msg, reply)
     save_suggestions(sid, suggestions)
 
     return jsonify({
         "reply": reply,
-        "images": search_images(msg),
-        "videos": search_youtube(msg),
+        "images": search_images(context_query),
+        "videos": search_youtube(context_query),
         "suggestions": suggestions
     })
 
@@ -275,15 +268,12 @@ def history():
     sid = request.cookies.get("session_id")
     return jsonify({"history": fetch_history(sid) if sid else []})
 
-# ---------------- EXPORT PDF (IMPROVED) ----------------
+# ---------------- EXPORT PDF ----------------
 @app.route("/export-pdf", methods=["POST"])
 def export_pdf():
     sid = request.cookies.get("session_id")
     history = fetch_history(sid)
     suggestions = fetch_suggestions(sid)
-
-    if not history:
-        return jsonify({"error": "No data"}), 400
 
     buffer = io.BytesIO()
 
@@ -291,56 +281,38 @@ def export_pdf():
     pdfmetrics.registerFont(TTFont("DejaVu", font_path))
 
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle("VN", fontName="DejaVu", fontSize=11, leading=14))
-    styles.add(ParagraphStyle("SUG", fontName="DejaVu", fontSize=10, italic=True))
+    styles.add(ParagraphStyle("VN", fontName="DejaVu", fontSize=11))
 
-    doc = SimpleDocTemplate(
-        buffer, pagesize=A4,
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
         leftMargin=2*cm, rightMargin=2*cm,
-        topMargin=2*cm, bottomMargin=2*cm
-    )
+        topMargin=2*cm, bottomMargin=2*cm)
 
-    story = [
-        Paragraph("<b>LỊCH SỬ HỘI THOẠI</b>", styles["VN"]),
-        Spacer(1, 12)
-    ]
+    story = [Paragraph("<b>LỊCH SỬ HỘI THOẠI</b>", styles["VN"]), Spacer(1, 12)]
 
     for h in history:
-        bg = colors.lightblue if h["role"] == "user" else colors.whitesmoke
         label = "NGƯỜI DÙNG" if h["role"] == "user" else "TRỢ LÝ"
-
-        table = Table(
-            [[label, h["content"]]],
-            colWidths=[3*cm, 12*cm]
-        )
+        table = Table([[label, h["content"]]], colWidths=[3*cm, 12*cm])
         table.setStyle(TableStyle([
-            ("BACKGROUND", (0,0), (-1,-1), bg),
             ("FONT", (0,0), (-1,-1), "DejaVu"),
             ("VALIGN", (0,0), (-1,-1), "TOP"),
-            ("LEFTPADDING", (0,0), (-1,-1), 6),
-            ("RIGHTPADDING", (0,0), (-1,-1), 6),
-            ("TOPPADDING", (0,0), (-1,-1), 6),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+            ("BACKGROUND", (0,0), (-1,-1),
+             colors.lightblue if h["role"]=="user" else colors.whitesmoke),
         ]))
-
         story.append(table)
         story.append(Spacer(1, 8))
 
     if suggestions:
         story.append(Spacer(1, 12))
-        story.append(Paragraph("<b>GỢI Ý CÂU HỎI TIẾP THEO</b>", styles["VN"]))
+        story.append(Paragraph("<b>GỢI Ý CÂU HỎI</b>", styles["VN"]))
         for s in suggestions:
-            story.append(Paragraph(f"- {s}", styles["SUG"]))
+            story.append(Paragraph(f"- {s}", styles["VN"]))
 
     doc.build(story)
     buffer.seek(0)
 
-    return send_file(
-        buffer,
-        as_attachment=True,
+    return send_file(buffer, as_attachment=True,
         download_name="travel_history.pdf",
-        mimetype="application/pdf"
-    )
+        mimetype="application/pdf")
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
