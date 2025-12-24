@@ -41,7 +41,7 @@ async function getHistory() {
     const r = await fetch("/history");
     const j = await r.json();
     return j.history || [];
-  } catch (e) {
+  } catch {
     return [];
   }
 }
@@ -54,7 +54,7 @@ function appendBubble(role, text) {
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-/* ---------------- IMAGES (ĐÃ SỬA) ---------------- */
+/* ---------------- IMAGES ---------------- */
 function renderImages(images) {
   if (!images || !images.length) return;
 
@@ -62,7 +62,6 @@ function renderImages(images) {
   row.className = "img-row";
 
   images.slice(0, 6).forEach(imgObj => {
-    // tương thích: nếu backend cũ chỉ trả string
     const src = typeof imgObj === "string" ? imgObj : imgObj.url;
     const caption = typeof imgObj === "string" ? "" : imgObj.caption;
 
@@ -71,7 +70,8 @@ function renderImages(images) {
 
     const img = document.createElement("img");
     img.src = src;
-    img.style.cssText = "width:140px;height:90px;object-fit:cover;border-radius:8px;cursor:pointer";
+    img.style.cssText =
+      "width:140px;height:90px;object-fit:cover;border-radius:8px;cursor:pointer";
     img.onclick = () => openImageModal(src, caption);
 
     const note = document.createElement("div");
@@ -90,6 +90,7 @@ function renderImages(images) {
 /* ---------------- VIDEOS ---------------- */
 function renderVideos(videos) {
   if (!videos || !videos.length) return;
+
   videos.slice(0, 4).forEach(link => {
     const a = document.createElement("a");
     a.href = link;
@@ -99,6 +100,7 @@ function renderVideos(videos) {
     a.style.marginTop = "6px";
     messagesEl.appendChild(a);
   });
+
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
@@ -106,6 +108,7 @@ function renderVideos(videos) {
 function renderSuggestions(list) {
   suggestionsEl.innerHTML = "";
   if (!list || !list.length) return;
+
   list.forEach(s => {
     const btn = document.createElement("button");
     btn.innerText = s;
@@ -131,9 +134,10 @@ async function sendMsg() {
   try {
     const r = await fetch("/chat", {
       method: "POST",
-      headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({msg: text})
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ msg: text })
     });
+
     const j = await r.json();
 
     placeholder.remove();
@@ -141,11 +145,12 @@ async function sendMsg() {
 
     if (j.images && j.images.length) renderImages(j.images);
     if (j.videos && j.videos.length) renderVideos(j.videos);
-    if (j.suggested) renderSuggestions(j.suggested);
+    if (j.suggestions && j.suggestions.length)
+      renderSuggestions(j.suggestions);
 
   } catch (e) {
     placeholder.remove();
-    appendBubble("bot", "Lỗi hệ thống. Thử lại.");
+    appendBubble("bot", "❌ Lỗi hệ thống. Vui lòng thử lại.");
     console.error(e);
   }
 }
@@ -153,7 +158,7 @@ async function sendMsg() {
 /* ---------------- EVENTS ---------------- */
 sendBtn.onclick = sendMsg;
 
-msgInput.addEventListener("keydown", (e) => {
+msgInput.addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     sendMsg();
@@ -172,7 +177,7 @@ msgInput.addEventListener("keydown", (e) => {
 /* ---------------- EXPORT PDF ---------------- */
 btnExport.onclick = async () => {
   try {
-    const resp = await fetch("/export-pdf", {method: "POST"});
+    const resp = await fetch("/export-pdf", { method: "POST" });
     if (!resp.ok) {
       alert("Không thể xuất PDF");
       return;
@@ -181,7 +186,7 @@ btnExport.onclick = async () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "history.pdf";
+    a.download = "travel_history.pdf";
     a.click();
     URL.revokeObjectURL(url);
   } catch (e) {
@@ -189,16 +194,11 @@ btnExport.onclick = async () => {
   }
 };
 
-/* ---------------- CLEAR HISTORY ---------------- */
-btnClear.onclick = async () => {
-  if (!confirm("Xóa toàn bộ lịch sử chat cho phiên này?")) return;
-  try {
-    await fetch("/clear-history", {method: "POST"});
-    messagesEl.innerHTML = "";
-    suggestionsEl.innerHTML = "";
-  } catch (e) {
-    console.error(e);
-  }
+/* ---------------- CLEAR (UI ONLY) ---------------- */
+btnClear.onclick = () => {
+  if (!confirm("Xóa toàn bộ lịch sử hiển thị cho phiên này?")) return;
+  messagesEl.innerHTML = "";
+  suggestionsEl.innerHTML = "";
 };
 
 /* ---------------- VIEW HISTORY ---------------- */
