@@ -138,9 +138,6 @@ Trả lời bằng tiếng Việt, không HTML.
 """
 
 def call_openai(user_msg):
-    if not OPENAI_API_KEY:
-        return "OPENAI_API_KEY chưa cấu hình."
-
     r = requests.post(
         "https://api.openai.com/v1/chat/completions",
         headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},
@@ -185,7 +182,7 @@ Trả lời: {answer}
     text = r.json()["choices"][0]["message"]["content"]
     return [x.strip("- ").strip() for x in text.splitlines() if x.strip()]
 
-# ---------------- SERPAPI (CONTEXT FIX) ----------------
+# ---------------- SERPAPI ----------------
 def search_images(query):
     if not SERPAPI_KEY:
         return []
@@ -200,10 +197,7 @@ def search_images(query):
         timeout=10
     )
     return [
-        {
-            "url": i.get("original"),
-            "caption": i.get("title")
-        }
+        {"url": i.get("original"), "caption": i.get("title")}
         for i in r.json().get("images_results", [])
     ]
 
@@ -246,13 +240,10 @@ def chat():
         return jsonify({"error": "empty"}), 400
 
     save_message(sid, "user", msg)
-
     reply = call_openai(msg)
     save_message(sid, "bot", reply)
 
-    # 🔑 CONTEXT SEARCH FIX
     context_query = f"{msg}. {reply.splitlines()[0]}"
-
     suggestions = generate_suggestions(msg, reply)
     save_suggestions(sid, suggestions)
 
@@ -268,7 +259,21 @@ def history():
     sid = request.cookies.get("session_id")
     return jsonify({"history": fetch_history(sid) if sid else []})
 
-# ---------------- EXPORT PDF ----------------
+# ---------------- EXPORT PDF (WITH FOOTER) ----------------
+def pdf_footer(canvas, doc):
+    canvas.saveState()
+    canvas.setFont("DejaVu", 9)
+    canvas.setFillColor(colors.grey)
+    canvas.drawString(
+        2 * cm, 1.2 * cm,
+        f"{BUILDER_NAME} | Hotline: {HOTLINE}"
+    )
+    canvas.drawRightString(
+        A4[0] - 2 * cm, 1.2 * cm,
+        f"Trang {doc.page}"
+    )
+    canvas.restoreState()
+
 @app.route("/export-pdf", methods=["POST"])
 def export_pdf():
     sid = request.cookies.get("session_id")
@@ -283,11 +288,16 @@ def export_pdf():
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle("VN", fontName="DejaVu", fontSize=11))
 
-    doc = SimpleDocTemplate(buffer, pagesize=A4,
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
         leftMargin=2*cm, rightMargin=2*cm,
-        topMargin=2*cm, bottomMargin=2*cm)
+        topMargin=2*cm, bottomMargin=2.5*cm
+    )
 
-    story = [Paragraph("<b>LỊCH SỬ HỘI THOẠI</b>", styles["VN"]), Spacer(1, 12)]
+    story = [
+        Paragraph("<b>LỊCH SỬ HỘI THOẠI – VIETNAM TRAVEL AI</b>", styles["VN"]),
+        Spacer(1, 12)
+    ]
 
     for h in history:
         label = "NGƯỜI DÙNG" if h["role"] == "user" else "TRỢ LÝ"
@@ -303,16 +313,19 @@ def export_pdf():
 
     if suggestions:
         story.append(Spacer(1, 12))
-        story.append(Paragraph("<b>GỢI Ý CÂU HỎI</b>", styles["VN"]))
+        story.append(Paragraph("<b>GỢI Ý CÂU HỎI TIẾP THEO</b>", styles["VN"]))
         for s in suggestions:
             story.append(Paragraph(f"- {s}", styles["VN"]))
 
-    doc.build(story)
+    doc.build(story, onFirstPage=pdf_footer, onLaterPages=pdf_footer)
     buffer.seek(0)
 
-    return send_file(buffer, as_attachment=True,
-        download_name="travel_history.pdf",
-        mimetype="application/pdf")
+    return send_file(
+        buffer,
+        as_attachment=True,
+        download_name="travel_chat_history.pdf",
+        mimetype="application/pdf"
+    )
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
