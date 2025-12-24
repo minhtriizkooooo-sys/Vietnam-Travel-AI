@@ -12,7 +12,8 @@ from flask_cors import CORS
 
 # PDF (Unicode)
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    SimpleDocTemplate, Paragraph, Spacer,
+    Table, TableStyle, Image
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.pagesizes import A4
@@ -127,12 +128,13 @@ Bạn là chuyên gia du lịch Việt Nam.
 
 QUY TẮC:
 - Nếu người dùng KHÔNG nêu địa điểm → mặc định tư vấn TP. Hồ Chí Minh, Việt Nam
+- Nếu câu hỏi KHÔNG liên quan du lịch → trả lời xin lỗi lịch sự
 
 FORMAT:
 1) Thời gian lý tưởng
 2) Lịch trình
 3) Chi phí
-4) Gợi ý hình ảnh & video (mô tả, không link)
+4) Gợi ý hình ảnh & video (mô tả)
 
 Trả lời bằng tiếng Việt, không HTML.
 """
@@ -243,14 +245,30 @@ def chat():
     reply = call_openai(msg)
     save_message(sid, "bot", reply)
 
-    context_query = f"{msg}. {reply.splitlines()[0]}"
+    # context sát hơn (2–3 dòng đầu)
+    reply_lines = [
+        l.strip("0123456789). -")
+        for l in reply.splitlines()
+        if l.strip()
+    ][:3]
+
+    context_query = f"{msg}. {' '.join(reply_lines)}"
+
     suggestions = generate_suggestions(msg, reply)
     save_suggestions(sid, suggestions)
 
+    images = search_images(context_query)
+    videos = search_youtube(context_query)
+
+    # fallback không phải du lịch → thêm video
+    if "Xin lỗi, nhưng tôi chỉ có thể tư vấn về du lịch tại Việt Nam" in reply:
+        if not videos:
+            videos = search_youtube("Du lịch TP. Hồ Chí Minh")
+
     return jsonify({
         "reply": reply,
-        "images": search_images(context_query),
-        "videos": search_youtube(context_query),
+        "images": images,
+        "videos": videos,
         "suggestions": suggestions
     })
 
@@ -259,21 +277,16 @@ def history():
     sid = request.cookies.get("session_id")
     return jsonify({"history": fetch_history(sid) if sid else []})
 
-# ---------------- EXPORT PDF (WITH FOOTER) ----------------
+# ---------------- PDF FOOTER ----------------
 def pdf_footer(canvas, doc):
     canvas.saveState()
     canvas.setFont("DejaVu", 9)
     canvas.setFillColor(colors.grey)
-    canvas.drawString(
-        2 * cm, 1.2 * cm,
-        f"{BUILDER_NAME} | Hotline: {HOTLINE}"
-    )
-    canvas.drawRightString(
-        A4[0] - 2 * cm, 1.2 * cm,
-        f"Trang {doc.page}"
-    )
+    canvas.drawString(2*cm, 1.2*cm, f"{BUILDER_NAME} | Hotline: {HOTLINE}")
+    canvas.drawRightString(A4[0]-2*cm, 1.2*cm, f"Trang {doc.page}")
     canvas.restoreState()
 
+# ---------------- EXPORT PDF ----------------
 @app.route("/export-pdf", methods=["POST"])
 def export_pdf():
     sid = request.cookies.get("session_id")
@@ -281,12 +294,17 @@ def export_pdf():
     suggestions = fetch_suggestions(sid)
 
     buffer = io.BytesIO()
-
     font_path = os.path.join(app.static_folder, "DejaVuSans.ttf")
     pdfmetrics.registerFont(TTFont("DejaVu", font_path))
 
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle("VN", fontName="DejaVu", fontSize=11))
+    styles.add(ParagraphStyle(
+        "VN",
+        fontName="DejaVu",
+        fontSize=11,
+        leading=14,
+        wordWrap="CJK"
+    ))
 
     doc = SimpleDocTemplate(
         buffer, pagesize=A4,
@@ -294,26 +312,40 @@ def export_pdf():
         topMargin=2*cm, bottomMargin=2.5*cm
     )
 
-    story = [
-        Paragraph("<b>LỊCH SỬ HỘI THOẠI – VIETNAM TRAVEL AI</b>", styles["VN"]),
-        Spacer(1, 12)
-    ]
+    story = []
+
+    logo_path = os.path.join(app.static_folder, "logo.png")
+    if os.path.exists(logo_path):
+        logo = Image(logo_path, width=4.5*cm, height=4.5*cm)
+        logo.hAlign = "CENTER"
+        story.append(logo)
+        story.append(Spacer(1, 12))
+
+    story.append(Paragraph("<b>LỊCH SỬ HỘI THOẠI</b>", styles["VN"]))
+    story.append(Spacer(1, 12))
 
     for h in history:
         label = "NGƯỜI DÙNG" if h["role"] == "user" else "TRỢ LÝ"
-        table = Table([[label, h["content"]]], colWidths=[3*cm, 12*cm])
+        table = Table(
+            [[label, Paragraph(h["content"], styles["VN"])]],
+            colWidths=[3*cm, 11.5*cm]
+        )
         table.setStyle(TableStyle([
             ("FONT", (0,0), (-1,-1), "DejaVu"),
             ("VALIGN", (0,0), (-1,-1), "TOP"),
+            ("LEFTPADDING", (0,0), (-1,-1), 6),
+            ("RIGHTPADDING", (0,0), (-1,-1), 6),
+            ("TOPPADDING", (0,0), (-1,-1), 6),
+            ("BOTTOMPADDING", (0,0), (-1,-1), 6),
             ("BACKGROUND", (0,0), (-1,-1),
              colors.lightblue if h["role"]=="user" else colors.whitesmoke),
         ]))
         story.append(table)
-        story.append(Spacer(1, 8))
+        story.append(Spacer(1, 10))
 
     if suggestions:
         story.append(Spacer(1, 12))
-        story.append(Paragraph("<b>GỢI Ý CÂU HỎI TIẾP THEO</b>", styles["VN"]))
+        story.append(Paragraph("<b>GỢI Ý TIẾP THEO</b>", styles["VN"]))
         for s in suggestions:
             story.append(Paragraph(f"- {s}", styles["VN"]))
 
