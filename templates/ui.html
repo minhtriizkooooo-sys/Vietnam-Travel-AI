@@ -1,228 +1,180 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Vietnam Travel AI</title>
+    <meta charset="UTF-8">
+    <title>Vietnam Travel AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<style>
-body{
-    margin:0;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont;
-    background:#f5f6f8;
-    display:flex;
-    flex-direction:column;
-    height:100vh;
-}
+    <!-- CSS -->
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f5f7fa;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
 
-header{
-    background:#fff;
-    border-bottom:1px solid #ddd;
-    padding:10px 16px;
-    display:flex;
-    align-items:center;
-    gap:12px;
-}
+        /* ===== HEADER ===== */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 20px;
+            background: #ffffff;
+            border-bottom: 1px solid #e6e6e6;
+        }
 
-header img{
-    height:56px;           /* LOGO TO HƠN */
-    max-width:220px;
-    object-fit:contain;
-}
+        .logo {
+            height: 56px; /* LOGO TO HƠN */
+            width: auto;
+        }
 
-header .title{
-    font-size:16px;
-    font-weight:600;
-}
+        .title h1 {
+            margin: 0;
+            font-size: 20px;
+            color: #1e3a8a;
+        }
 
-#chat-box{
-    flex:1;
-    overflow-y:auto;
-    padding:16px;
-    display:flex;
-    flex-direction:column;
-    gap:12px;
-}
+        .title small {
+            color: #666;
+            font-size: 13px;
+        }
 
-.msg{
-    max-width:85%;
-    padding:12px 14px;
-    border-radius:14px;
-    white-space:pre-wrap;
-    word-break:break-word;
-    line-height:1.5;
-}
+        /* ===== CHAT AREA ===== */
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
 
-.msg.user{
-    align-self:flex-end;
-    background:#d1f0e8;
-    border-bottom-right-radius:4px;
-}
+        .message {
+            max-width: 85%;
+            margin-bottom: 12px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
 
-.msg.bot{
-    align-self:flex-start;
-    background:#fff;
-    border:1px solid #ddd;
-    border-bottom-left-radius:4px;
-}
+        .user {
+            background: #dbeafe;
+            align-self: flex-end;
+            margin-left: auto;
+        }
 
-.media{
-    margin-top:6px;
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px;
-}
+        .bot {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+        }
 
-.media img,
-.media iframe{
-    max-width:160px;
-    border-radius:8px;
-}
+        /* ===== IMAGE / VIDEO ===== */
+        .media {
+            margin-top: 6px;
+        }
 
-.suggestions{
-    margin-top:8px;
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px;
-}
+        .media img {
+            max-width: 140px;
+            border-radius: 6px;
+            margin: 4px;
+        }
 
-.suggestions button{
-    background:#eef2ff;
-    border:1px solid #c7d2fe;
-    padding:6px 12px;
-    border-radius:999px;
-    cursor:pointer;
-    font-size:14px;
-}
+        .media a {
+            display: block;
+            font-size: 13px;
+            color: #2563eb;
+            text-decoration: none;
+            margin-top: 4px;
+        }
 
-footer{
-    background:#fff;
-    border-top:1px solid #ddd;
-    padding:10px;
-}
+        /* ===== SUGGESTIONS ===== */
+        .suggestions {
+            margin-top: 10px;
+        }
 
-.input-wrap{
-    display:flex;
-    gap:8px;
-}
+        .suggestions button {
+            background: #eef2ff;
+            border: 1px solid #c7d2fe;
+            border-radius: 16px;
+            padding: 6px 12px;
+            margin: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
 
-textarea{
-    flex:1;
-    resize:none;
-    padding:10px;
-    border-radius:10px;
-    border:1px solid #ccc;
-    font-size:15px;
-}
+        .suggestions button:hover {
+            background: #e0e7ff;
+        }
 
-button{
-    background:#0a7cff;
-    color:#fff;
-    border:none;
-    padding:0 16px;
-    border-radius:10px;
-    cursor:pointer;
-}
+        /* ===== INPUT ===== */
+        .input-area {
+            display: flex;
+            padding: 10px;
+            background: #ffffff;
+            border-top: 1px solid #e6e6e6;
+        }
 
-@media(max-width:600px){
-    .msg{max-width:95%}
-    header img{height:44px}
-}
-</style>
+        .input-area input {
+            flex: 1;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+
+        .input-area button {
+            margin-left: 8px;
+            padding: 10px 16px;
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .input-area button:hover {
+            background: #1d4ed8;
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            text-align: center;
+            padding: 10px;
+            font-size: 13px;
+            color: #666;
+            background: #fafafa;
+            border-top: 1px solid #e5e7eb;
+        }
+    </style>
 </head>
 
 <body>
 
-<header>
-    <img src="/static/logo.png" alt="Logo">
-    <div class="title">Vietnam Travel AI</div>
+<!-- HEADER -->
+<header class="top-bar">
+    <img src="/static/logo.png" class="logo" alt="Vietnam Travel AI">
+    <div class="title">
+        <h1>Vietnam Travel AI</h1>
+        <small>Tư vấn du lịch thông minh</small>
+    </div>
 </header>
 
-<div id="chat-box"></div>
+<!-- CHAT -->
+<div id="chat" class="chat-container"></div>
 
-<footer>
-    <div class="input-wrap">
-        <textarea id="msg" rows="1" placeholder="Hỏi về du lịch Việt Nam..."></textarea>
-        <button onclick="send()">Gửi</button>
-    </div>
+<!-- INPUT -->
+<div class="input-area">
+    <input id="msg" type="text" placeholder="Nhập câu hỏi du lịch của bạn..." />
+    <button onclick="sendMsg()">Gửi</button>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+    <div>📞 {{ HOTLINE }}</div>
+    <div>© {{ BUILDER }}</div>
 </footer>
 
-<script>
-const chatBox = document.getElementById("chat-box");
-const msgInput = document.getElementById("msg");
-
-function addMessage(text, role){
-    const div = document.createElement("div");
-    div.className = "msg " + role;
-    div.textContent = text;
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
-    return div;
-}
-
-function addMedia(parent, images, videos){
-    if((images && images.length) || (videos && videos.length)){
-        const m = document.createElement("div");
-        m.className = "media";
-
-        images?.forEach(i=>{
-            const img=document.createElement("img");
-            img.src=i.url;
-            m.appendChild(img);
-        });
-
-        videos?.forEach(v=>{
-            const iframe=document.createElement("iframe");
-            iframe.src=v.replace("watch?v=","embed/");
-            iframe.width=160;
-            iframe.height=90;
-            iframe.allow="accelerometer; autoplay; encrypted-media";
-            m.appendChild(iframe);
-        });
-
-        parent.appendChild(m);
-    }
-}
-
-function addSuggestions(list){
-    if(!list || !list.length) return;
-    const s=document.createElement("div");
-    s.className="suggestions";
-    list.forEach(q=>{
-        const b=document.createElement("button");
-        b.textContent=q;
-        b.onclick=()=>send(q);
-        s.appendChild(b);
-    });
-    chatBox.appendChild(s);
-}
-
-async function send(text){
-    const content = text || msgInput.value.trim();
-    if(!content) return;
-
-    msgInput.value="";
-    addMessage(content,"user");
-
-    const r = await fetch("/chat",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({msg:content})
-    });
-    const data = await r.json();
-
-    const bot = addMessage(data.reply,"bot");
-    addMedia(bot, data.images, data.videos);
-    addSuggestions(data.suggestions);
-}
-
-msgInput.addEventListener("keydown",e=>{
-    if(e.key==="Enter" && !e.shiftKey){
-        e.preventDefault();
-        send();
-    }
-});
-</script>
-
+<script src="/static/chat.js"></script>
 </body>
 </html>
